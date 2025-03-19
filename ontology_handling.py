@@ -19,7 +19,8 @@ class TreeHelper:
             'HY':['HY'], # hypothalamus
             'TH':['TH'], # thalamus
             'MB':['MB'], # midbrain
-            'HB':['HB'], # hind brain 
+            'HB':['HB'], # hind brain
+            'BS':['BS'], # brainstem 
             'CB':['CB'], # cerebellum
             'dev':['dev'], # developmental
             'ft':['ft'], # fiber tracts
