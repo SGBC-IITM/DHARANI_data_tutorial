@@ -1,15 +1,21 @@
 import json
 import s3fs
 from collections import defaultdict, namedtuple
+import requests
 
 NodeRecord = namedtuple('NodeRecord','acronym,name,level,parentid,color_hex_triplet')
 
 class TreeHelper:
-    def __init__(self):
-        s3 = s3fs.S3FileSystem(anon=True)
-        with s3.open('dharani-fetal-brain-atlas/ontology/ontology.json') as fp:
-            self.treenom = json.load(fp)['msg'][0]['children']
-        
+    def __init__(self, ontoname='dharani'):
+        if ontoname == 'dharani':
+            s3 = s3fs.S3FileSystem(anon=True)
+            with s3.open('dharani-fetal-brain-atlas/ontology/ontology.json') as fp:
+                self.treenom = json.load(fp)['msg'][0]['children']
+
+        elif ontoname=='allen_devhuman':
+            allenonto = requests.get('http://api.brain-map.org/api/v2/structure_graph_download/16.json').json()
+            self.treenom = allenonto['msg'][0]['children'][0]['children']
+
         # self.flatnom = json.load(open('flatnom_189.json'))['msg'][0]['children']
         
         self.groups = {
@@ -42,6 +48,13 @@ class TreeHelper:
         # for elt in self.flatnom:
         #     if elt['id'] not in self.onto_lookup:
         #         self.onto_lookup[elt['id']]=(elt['acronym'],elt['name'],-1,-1)
+    
+    def _get_node_data(self,elt):
+        outdict={}
+        for k,v in elt.items():
+            if k!='children':
+                outdict[k]=v
+        return outdict
     
     def _dft(self, elt, level, parentid):
         self.onto_lookup[elt['id']]=NodeRecord(elt['acronym'],elt['name'],level,parentid,'#'+elt['color_hex_triplet'])
@@ -143,7 +156,7 @@ class TreeHelper:
         ancestorids = self.get_ancestor_ids(ontoid)
         for grpname in self.subtrees:
             for subtr in self.subtrees[grpname]:
-                if subtr['id'] in ancestorids:
+                if subtr['id'] in ancestorids or subtr['id']==ontoid:
                     return grpname
         
         return None
