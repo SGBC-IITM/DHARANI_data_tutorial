@@ -2,7 +2,7 @@ import json
 import s3fs
 from collections import defaultdict, namedtuple
 
-NodeRecord = namedtuple('NodeRecord','acronym,name,level,parentid')
+NodeRecord = namedtuple('NodeRecord','acronym,name,level,parentid,color_hex_triplet')
 
 class TreeHelper:
     def __init__(self):
@@ -30,24 +30,24 @@ class TreeHelper:
 
         self.subtrees = {k:[] for k in self.groups}
 
-        self.onto_lookup = {} # id:(acronym,name,level,parentid)
+        self.onto_lookup:dict[int,NodeRecord] = {} # id:(acronym,name,level,parentid,color_hex_triplet)
 
         for elt in self.treenom:
             self._find_subtrees(elt)
-            self.onto_lookup[elt['id']]=NodeRecord(elt['acronym'],elt['name'],0,0)
+            self.onto_lookup[elt['id']]=NodeRecord(elt['acronym'],elt['name'],0,0,'#'+elt['color_hex_triplet'])
             if 'children' in elt:
                 for child in elt['children']:
-                    self.dft(child,1,elt['id'])
+                    self._dft(child,1,elt['id'])
 
         # for elt in self.flatnom:
         #     if elt['id'] not in self.onto_lookup:
         #         self.onto_lookup[elt['id']]=(elt['acronym'],elt['name'],-1,-1)
     
-    def dft(self, elt, level, parentid):
-        self.onto_lookup[elt['id']]=NodeRecord(elt['acronym'],elt['name'],level,parentid)
+    def _dft(self, elt, level, parentid):
+        self.onto_lookup[elt['id']]=NodeRecord(elt['acronym'],elt['name'],level,parentid,'#'+elt['color_hex_triplet'])
         if 'children' in elt:
             for child in elt['children']:
-                self.dft(child,level+1,elt['id'])
+                self._dft(child,level+1,elt['id'])
         
 
     def _find_subtrees(self,elt):
@@ -61,46 +61,113 @@ class TreeHelper:
             if elt['acronym'] in grpparents:
                 self.subtrees[grpname].append(elt)
                     
-    def get_group_by_name(self, rgnname):
+    # def get_group_by_acronym(self, rgnname):
+    #     for grpname in self.subtrees:
+    #         for subtr in self.subtrees[grpname]:
+    #             if self._find_node_by_acronym(subtr,rgnname):
+    #                 return grpname
+    #     return None
+
+    # def _find_node_by_acronym(self,seednode, rgnname):
+    #     if seednode['acronym']==rgnname:
+    #         return True
+    #     if 'children' in seednode:
+    #         for child in seednode['children']:
+    #             if self._find_node_by_acronym(child, rgnname):
+    #                 return True
+    #     return False
+
+    # def get_group_by_ontoid(self, ontoid):
+    #     for grpname in self.subtrees:
+    #         for subtr in self.subtrees[grpname]:
+    #             if self._find_node_by_id(subtr, ontoid):
+    #                 return grpname
+
+    # def _find_node_by_id(self, seednode, ontoid):
+    #     # dfs
+    #     if seednode['id']==ontoid:
+    #         return True
+    #     if 'children' in seednode:
+    #         for child in seednode['children']:
+    #             if self._find_node_by_id(child, ontoid):
+    #                 return True
+    #     return False
+              
+    def get_ancestor_ids(self, ontoid:int):
+        idlist = []
+        lastrec = self.onto_lookup[ontoid]
+        while lastrec.parentid != 0:
+            idlist.append(lastrec.parentid)
+            lastrec = self.onto_lookup[lastrec.parentid]
+
+        return list(reversed(idlist))
+    
+    def _get_node_by_ontoid(self,ontoid):
+        ancestorids = self.get_ancestor_ids(ontoid)
+        ancnode = None
+        
+        for elt in self.treenom:
+            # print(elt['id'])
+            if elt['id'] in ancestorids:
+                ancnode = elt
+                break
+
+        # traverse ancestors from root down, to get the parentnode
+        node = None
+        while node is None:
+            # print(ancnode['id'])
+            if 'children' in ancnode:
+                for ch in ancnode['children']:
+                    if ch['id'] in ancestorids:
+                        ancnode = ch 
+                    elif ch['id']==ontoid:
+                        node = ch
+                        break
+            else:
+                break
+
+        return node
+
+    def get_sibling_ids(self,ontoid:int):
+        
+        parentid = self.onto_lookup[ontoid].parent
+        parentnode = self.get_node_by_ontoid(parentid)
+
+        siblingids = [elt['id'] for elt in parentnode['children']]
+        
+        return siblingids
+    
+
+    def get_group_by_ontoid(self, ontoid:int):
+
+        ancestorids = self.get_ancestor_ids(ontoid)
         for grpname in self.subtrees:
             for subtr in self.subtrees[grpname]:
-                if self._find_node_by_name(subtr,rgnname):
+                if subtr['id'] in ancestorids:
                     return grpname
+        
+        return None
+    
+    def _get_id_by_acronym(self,acro:str):
+        for id, rec in self.onto_lookup.items():
+            if acro == rec.acronym:
+                return id
+        return None
+    
+    def get_group_by_acronym(self, acro:str):
+        ontoid = self._get_id_by_acronym(acro)
+        if ontoid is not None:
+            return self.get_group_by_ontoid(ontoid)
         return None
 
-    def _find_node_by_name(self,seednode, rgnname):
-        if seednode['acronym']==rgnname:
-            return True
-        if 'children' in seednode:
-            for child in seednode['children']:
-                if self._find_node_by_name(child, rgnname):
-                    return True
-        return False
-
-    def get_group_by_ontoid(self, ontoid):
-        for grpname in self.subtrees:
-            for subtr in self.subtrees[grpname]:
-                if self._find_node_by_id(subtr, ontoid):
-                    return grpname
-
-    def _find_node_by_id(self, seednode, ontoid):
-        if seednode['id']==ontoid:
-            return True
-        if 'children' in seednode:
-            for child in seednode['children']:
-                if self._find_node_by_id(child, ontoid):
-                    return True
-        return False
-              
-        
     def print_tree(self):
         print('[lvl] id (acronym) name')
         print('---------------------')
         for toplevel in self.treenom:
             # print(toplevel['id'],toplevel['name'])
-            self.show_children(toplevel)
+            self._show_children(toplevel)
         
-    def show_children(self,elt,level=0):
+    def _show_children(self,elt,level=0):
         lvlstr='[%d]'%level
         if '-' in elt['acronym']:
             parts = elt['acronym'].split('-')
@@ -114,10 +181,10 @@ class TreeHelper:
         else:
             if len(elt['children'])>0:
                 for child in elt['children']:
-                    self.show_children(child,level+1)
+                    self._show_children(child,level+1)
 
 
-    def get_ids_by_level(self,level):
+    def get_ids_by_level(self,level:int):
         idlist = []
         for id,rec in self.onto_lookup.items():
             if rec.level==level:
@@ -146,8 +213,8 @@ class TreeHelper:
                     idlist[zoneprefix].append(id)
         return idlist
     
-    def print_subtree(self, grpname):
+    def print_subtree(self, grpname:str):
         print('[lvl] id (acronym) name')
         print('---------------------')
         for root in self.subtrees[grpname]:
-            self.show_children(root)
+            self._show_children(root)
