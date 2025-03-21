@@ -6,4 +6,5 @@ tqdm==4.67.1
 matplotlib==3.10.1
 requests
 svgpathtools
+svg.path
 shapely

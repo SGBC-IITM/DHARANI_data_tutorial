@@ -71,24 +71,33 @@ def get_svg_url(atlas_id, img, graphic_groups, downsample): #, output_directory)
     return None
 
 import xml.etree.ElementTree as ET
-from svgpathtools import parse_path
+# from svgpathtools import parse_path
+from svg.path import parse_path
 import shapely
-# from shapely.geometry import LineString, Polygon, mapping
+from shapely.geometry import mapping # LineString, Polygon,
 
-def make_geojson_feature(structureid,feat):
+def make_geojson_feature(structureid,shape):
     
     return  {
         "type": "Feature", 
-        "geometry": {"coordinates":feat}, 
+        "geometry": mapping(shape),
         "properties": {"id":structureid}
     }
     
-def make_polyshape(feat):
+def make_polyshape(feat, make_valid=False):
+
     # feat is a list of coords [(x,y)] or ( [(x,y)], [(x,y)], ... )
     # where first is outer, all next are holes
     if len(feat)>1:
-        return shapely.Polygon(shell=feat[0],holes=feat[1:])
-    return shapely.Polygon(feat[0])
+        shp = shapely.Polygon(shell=feat[0],holes=feat[1:])
+        
+    else:
+        shp = shapely.Polygon(feat[0])
+        if make_valid:
+            shp = shp.buffer(0)
+    
+    return shp
+
 
 def _path_to_coords(path_d):
 
