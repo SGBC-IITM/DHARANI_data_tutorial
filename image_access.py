@@ -4,7 +4,6 @@ import fsspec
 from PIL import Image
 import numpy as np
 from io import BytesIO
-from tqdm import tqdm
 
 class PyrTifAccessor:
     def __init__(self,s3_url):
@@ -47,6 +46,12 @@ class PyrTifAccessor:
             return self.infodict['series'][seriesnum]['levels'][levelnum]
         return self.infodict['series'][seriesnum]['levels'][levelnum]['pages'][pagenum]
     
+    def get_page(self,seriesnum,levelnum,pagenum):
+        with self.fs.open(self.url, 'rb', block_size=4*1024) as fp:
+            with TiffFile(fp) as tif:
+                page = tif.series[seriesnum].levels[levelnum].pages[pagenum]
+                return page.asarray()
+
     def get_tile(self,seriesnum,levelnum,pagenum,tile_index):
         np_tile = None
         with self.fs.open(self.url, 'rb', block_size=4*1024) as fp:

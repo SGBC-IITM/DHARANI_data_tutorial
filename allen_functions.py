@@ -38,7 +38,7 @@ def fetch_graphic_groups( atlas_metadata ) :
     return gg
     
 
-def get_image_url(atlas_id, img, downsample, annotation): #, output_directory):
+def get_image_url(atlas_id, img, downsample, annotation=False): #, output_directory):
     if annotation :
         image_type = 'annotation'
         annotation_attr = 'true'
@@ -70,20 +70,38 @@ def get_svg_url(atlas_id, img, graphic_groups, downsample): #, output_directory)
     
     return None
 
+class AllenHelper:
+    def __init__(self, atlas_id=3, downsample = 3):
+        """
+        atlas ids:
+        * 3 = 21 pcw cerebrum [default]
+        * 287730656 = 21 pcw brainstem
+        * 138322603 = 15 pcw
+
+        mpp = 2^downsample
+        downsample=3 [default] => mpp=8
+        """
+        self.atlas_id = atlas_id
+        metadata = fetch_atlas_metadata( atlas_id )
+        self.images = fetch_atlas_images( metadata )
+        self.graphic_groups = fetch_graphic_groups( metadata )
+        self.downsample = downsample
+
+    def get_section_numbers(self):
+        return [elt['section_number'] for elt in self.images]
+            
+    def get_section_urls(self, secnum):
+        secnos = self.get_section_numbers()
+        img = self.images[secnos.index(secnum)]
+        image_url = get_image_url(self.atlas_id, img, self.downsample, False)
+        annot_url = get_svg_url(self.atlas_id, img, self.graphic_groups, self.downsample)
+        return image_url, annot_url
+
 import xml.etree.ElementTree as ET
 # from svgpathtools import parse_path
 from svg.path import parse_path
 import shapely
-from shapely.geometry import mapping # LineString, Polygon,
 
-def make_geojson_feature(structureid,shape):
-    
-    return  {
-        "type": "Feature", 
-        "geometry": mapping(shape),
-        "properties": {"id":structureid}
-    }
-    
 def make_polyshape(feat, make_valid=False):
 
     # feat is a list of coords [(x,y)] or ( [(x,y)], [(x,y)], ... )

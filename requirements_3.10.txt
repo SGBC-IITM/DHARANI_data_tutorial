@@ -1,9 +1,10 @@
-fsspec==2025.3.0
-s3fs==2025.3.0
-tifffile==2025.3.13
-pillow==11.1.0
-tqdm==4.67.1
-matplotlib==3.10.1
+fsspec
+s3fs
+tifffile
+pillow
+imagecodecs
+tqdm
+matplotlib
 requests
 svgpathtools
 svg.path
