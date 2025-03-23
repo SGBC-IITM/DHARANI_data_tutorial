@@ -49,6 +49,9 @@ class TreeHelper:
         #     if elt['id'] not in self.onto_lookup:
         #         self.onto_lookup[elt['id']]=(elt['acronym'],elt['name'],-1,-1)
     
+    def __len__(self):
+        return len(self.onto_lookup)
+    
     def _get_node_data(self,elt):
         outdict={}
         for k,v in elt.items():

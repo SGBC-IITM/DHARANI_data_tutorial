@@ -4,6 +4,13 @@ import os
 from tqdm import tqdm
 import requests
 
+from PIL import Image
+from io import BytesIO
+import numpy as np
+from collections import defaultdict
+
+#%% low level functions 
+# ref  https://community.brain-map.org/t/atlas-drawing-and-ontologies/2864
 
 def fetch_atlas_metadata( atlas_id ) :
     
@@ -70,8 +77,10 @@ def get_svg_url(atlas_id, img, graphic_groups, downsample): #, output_directory)
     
     return None
 
+#%%
+
 class AllenHelper:
-    def __init__(self, atlas_id=3, downsample = 3):
+    def __init__(self, atlas_id:int = 3, downsample:int = 3):
         """
         atlas ids:
         * 3 = 21 pcw cerebrum [default]
@@ -89,13 +98,45 @@ class AllenHelper:
 
     def get_section_numbers(self):
         return [elt['section_number'] for elt in self.images]
-            
-    def get_section_urls(self, secnum):
+
+    def _get_img(self,secnum:int):
         secnos = self.get_section_numbers()
         img = self.images[secnos.index(secnum)]
+        return img
+
+    def get_section_urls(self, secnum:int):
+        img = self._get_img(secnum)
         image_url = get_image_url(self.atlas_id, img, self.downsample, False)
         annot_url = get_svg_url(self.atlas_id, img, self.graphic_groups, self.downsample)
         return image_url, annot_url
+
+    def get_sectionimage(self,secnum:int):
+        imgurl, annoturl = self.get_section_urls(secnum)
+        req = requests.get(imgurl, timeout=500, stream=True)
+        im = Image.open(BytesIO(req.content))
+        return np.array(im)
+    
+    def get_annotation(self, secnum:int):
+        imgurl, annoturl = self.get_section_urls(secnum)
+        req = requests.get(annoturl, timeout=500)
+        if req.status_code==200:
+            # FIXME: MAGIC: 3 was found empirically 
+            shapes = get_svg_paths_as_shapes(req.text, scale=3/(2**(self.downsample)))
+
+            for ontoid,shplist in shapes.items():
+                if len(shplist)>1: # FIX for duplicates - pick first one
+                    shapes[ontoid]=shapes[ontoid][:1]
+            return shapes
+        return {}
+    
+    def get_viewer_url(self, secnum:int):
+        baseurl = 'https://atlas.brain-map.org'
+        img = self._get_img(secnum)
+        plate=img['lims1_id']
+        url = f'{baseurl}/atlas?atlas={self.atlas_id}&plate={plate}&zoom=-5'
+        return url
+
+#%% util functions for handling svg, shapely 
 
 import xml.etree.ElementTree as ET
 # from svgpathtools import parse_path
@@ -117,7 +158,18 @@ def make_polyshape(feat, make_valid=False):
     return shp
 
 
-def _path_to_coords(path_d):
+# from shapely.geometry import mapping # LineString, Polygon,
+
+# def make_geojson_feature(structureid,shape):
+#     # reverse of make_shape
+#     return  {
+#         "type": "Feature", 
+#         "geometry": mapping(shape),
+#         "properties": {"id":structureid}
+#     }
+    
+
+def _path_to_coords(path_d, scale):
 
     path = parse_path(path_d)
     coords = []
@@ -128,17 +180,21 @@ def _path_to_coords(path_d):
             coords.append(pt1)
         coords.append(pt2)
     
-    return coords
+    return np.array(coords)*scale
 
-def get_svg_paths(svg_data):
+def get_svg_paths_as_shapes(svg_data, scale=1):
     root = ET.fromstring(svg_data)
-    svgpaths = {}
+
+    shapes = defaultdict(list)
+
     for elt in root.findall(".//{*}path"):
-        ontoid = elt.attrib['structure_id']
+        ontoid = int(elt.attrib['structure_id']) # NOTE: from xml default type is str
         pathd = elt.attrib['d']
-        if ontoid not in svgpaths:
-            svgpaths[ontoid]=[_path_to_coords(pathd)]
-        else:
-            svgpaths[ontoid].append(_path_to_coords(pathd))
-    return svgpaths
+        coords = _path_to_coords(pathd,scale)
+        # print(ontoid,len(coords))
+        shp = make_polyshape([coords],make_valid=True)
+        
+        shapes[ontoid].append(shp)
+
+    return shapes
 

@@ -9,3 +9,4 @@ requests
 svgpathtools
 svg.path
 shapely
+rapidfuzz

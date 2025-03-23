@@ -30,12 +30,12 @@ class DharaniHelper:
                 secnumbers.append(secnum)
         return secnumbers
 
-    def get_dharani_sectionimage(self, secnum):
+    def get_sectionimage(self, secnum):
         s3url = f's3://dharani-fetal-brain-atlas/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'
         accessor = PyrTifAccessor(s3url)
         return accessor.get_page(0,self.downsample,0)
 
-    def get_dharani_annotation(self, secnum):
+    def get_annotation(self, secnum):
         
         jsonpath = f'data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.json'    
         with self.s3.open('dharani-fetal-brain-atlas/'+jsonpath) as fp:
@@ -58,3 +58,9 @@ class DharaniHelper:
             outdict[ontoid].append(shape)
 
         return outdict
+
+    def get_viewer_url(self, secnum):
+        baseurl = 'https://dharani.humanbrain.in'
+        url = f'{baseurl}/code/2dviewer/annotation/public?data={self.specimennum-1}&region=-1&section={secnum}}'
+        return url
+    
