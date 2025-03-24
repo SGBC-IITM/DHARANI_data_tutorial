@@ -247,7 +247,28 @@ class TreeHelper:
         query = searchstr.lower() # .replace(',', ' in')
         scorer = fuzz.ratio
         if partial:
-            scorer=fuzz.partial_token_ratio
+            scorer=fuzz.partial_token_sort_ratio
         ret = fuzzy_similarity(query, self.search_dict, scorer=scorer, score_cutoff=85, limit=num_results)
+
+        if not partial:
+            for elt in ret:
+                if elt[1]==100:
+                    ret = [elt] # suppress other elts
+                    break
+        if len(ret)==0 and not partial:
+            ret = fuzzy_similarity(query, self.search_dict, scorer=fuzz.token_ratio, score_cutoff=90, limit=5)
+        
+        if len(ret)==0:
+            ret = fuzzy_similarity(query, self.search_dict, scorer=fuzz.partial_token_sort_ratio, score_cutoff=90, limit=5)
+
+        if ' of ' not in searchstr:
+
+            out = []
+            for elt in ret:                
+                if ' of ' not in elt[0]:
+                    out.append(elt)
+            
+            ret = out
+
         return ret
     
