@@ -7,6 +7,7 @@ from image_access import PyrTifAccessor
 
 from collections import defaultdict
 from shapely.geometry import shape as make_shape
+from shapely.geometry import MultiPolygon
 
 class DharaniHelper:
     def __init__(self, specimennum, downsample=3):
@@ -54,13 +55,24 @@ class DharaniHelper:
                 'coordinates': [coordinates.tolist()]
                            }
         
-            shape = make_shape(updatedgeom)
+            shape = make_shape(updatedgeom).buffer(0)
             outdict[ontoid].append(shape)
 
+        # revisit and make multi
+        
+        for ontoid,shapes in outdict.items():
+            united = None
+            for shp in shapes:
+                if united is None:
+                    united = shp
+                else:
+                    united = united.union(shp)
+
+            outdict[ontoid]=united
         return outdict
 
     def get_viewer_url(self, secnum):
         baseurl = 'https://dharani.humanbrain.in'
-        url = f'{baseurl}/code/2dviewer/annotation/public?data={self.specimennum-1}&region=-1&section={secnum}}'
+        url = f'{baseurl}/code/2dviewer/annotation/public?data={self.specimennum-1}&region=-1&section={secnum}'
         return url
     
