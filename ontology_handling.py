@@ -3,6 +3,10 @@ import s3fs
 from collections import defaultdict, namedtuple
 import requests
 
+from rapidfuzz.process import extract as fuzzy_similarity
+from rapidfuzz import fuzz
+
+
 NodeRecord = namedtuple('NodeRecord','acronym,name,level,parentid,color_hex_triplet')
 
 class TreeHelper:
@@ -48,6 +52,8 @@ class TreeHelper:
         # for elt in self.flatnom:
         #     if elt['id'] not in self.onto_lookup:
         #         self.onto_lookup[elt['id']]=(elt['acronym'],elt['name'],-1,-1)
+
+        self.search_dict = {k:v.name.lower() for k,v in self.onto_lookup.items()}
     
     def __len__(self):
         return len(self.onto_lookup)
@@ -234,3 +240,14 @@ class TreeHelper:
         print('---------------------')
         for root in self.subtrees[grpname]:
             self._show_children(root)
+
+
+    def search(self, searchstr, partial=False, num_results=5):
+        # set num_results to -1 for no limit
+        query = searchstr.lower() # .replace(',', ' in')
+        scorer = fuzz.ratio
+        if partial:
+            scorer=fuzz.partial_token_ratio
+        ret = fuzzy_similarity(query, self.search_dict, scorer=scorer, score_cutoff=85, limit=num_results)
+        return ret
+    
