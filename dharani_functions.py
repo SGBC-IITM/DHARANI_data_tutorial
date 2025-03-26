@@ -7,7 +7,6 @@ from image_access import PyrTifAccessor
 
 from collections import defaultdict
 from shapely.geometry import shape as make_shape
-from shapely.geometry import MultiPolygon
 
 class DharaniHelper:
     def __init__(self, specimennum, downsample=3):
@@ -44,7 +43,7 @@ class DharaniHelper:
             # {type: featurecollection, features: [features] }
 
         # aggregate by ontoid
-        outdict = defaultdict(list)
+        shapes = defaultdict(list)
         mpp = 2**self.downsample
         for feat in annot['features']:
             ontoid = feat['properties']['data']['id']
@@ -56,13 +55,14 @@ class DharaniHelper:
                            }
         
             shape = make_shape(updatedgeom).buffer(0)
-            outdict[ontoid].append(shape)
+            shapes[ontoid].append(shape)
 
         # revisit and make multi
         
-        for ontoid,shapes in outdict.items():
+        outdict = {}
+        for ontoid,shplist in shapes.items():
             united = None
-            for shp in shapes:
+            for shp in shplist:
                 if united is None:
                     united = shp
                 else:

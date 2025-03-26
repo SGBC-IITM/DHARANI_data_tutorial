@@ -1,7 +1,5 @@
 import urllib.request
 import json
-import os
-from tqdm import tqdm
 import requests
 
 from PIL import Image
@@ -9,7 +7,8 @@ from io import BytesIO
 import numpy as np
 from collections import defaultdict
 
-#%% low level functions 
+#%% low level functions specific to Allen dataset
+
 # ref  https://community.brain-map.org/t/atlas-drawing-and-ontologies/2864
 
 def fetch_atlas_metadata( atlas_id ) :
@@ -119,15 +118,23 @@ class AllenHelper:
     def get_annotation(self, secnum:int):
         imgurl, annoturl = self.get_section_urls(secnum)
         req = requests.get(annoturl, timeout=500)
+        
+        outdict = {}
         if req.status_code==200:
             # FIXME: MAGIC: 3 was found empirically 
             shapes = get_svg_paths_as_shapes(req.text, scale=3/(2**(self.downsample)))
 
             for ontoid,shplist in shapes.items():
-                if len(shplist)>1: # FIX for duplicates - pick first one
-                    shapes[ontoid]=shapes[ontoid][:1]
-            return shapes
-        return {}
+                united = None
+                for shp in shplist:
+                    if united is None:
+                        united = shp
+                    else:
+                        united=united.union(shp)
+                        
+                outdict[ontoid] = united
+        return outdict
+        
     
     def get_viewer_url(self, secnum:int):
         baseurl = 'https://atlas.brain-map.org'
@@ -174,11 +181,16 @@ def _path_to_coords(path_d, scale):
     path = parse_path(path_d)
     coords = []
     for ii,seg in enumerate(path):
-        pt1 = [seg.start.real, seg.start.imag]
-        pt2 = [seg.end.real, seg.end.imag]
-        if ii == 0:
-            coords.append(pt1)
-        coords.append(pt2)
+        # pt1 = [seg.start.real, seg.start.imag]
+        # pt2 = [seg.end.real, seg.end.imag]
+        # if ii == 0:
+        #     coords.append(pt1)
+        # coords.append(pt2)
+        
+        for t in np.linspace(0, 1, num=10):  # More points = smoother
+            pt = seg.point(t)
+            pt2 = (pt.real,pt.imag)
+            coords.append(pt2)
     
     return np.array(coords)*scale
 

@@ -23,28 +23,32 @@ class TreeHelper:
         # self.flatnom = json.load(open('flatnom_189.json'))['msg'][0]['children']
         
         self.groups = {
-            'HPF':['HPF'], # hippocampal formation
-            'AMY_BN':['AMY','BN'], # amygdala + basal nucleus
-            'Mig':['Lms','Rms','GE'], # migratory areas
-            'HY':['HY'], # hypothalamus
-            'TH':['TH'], # thalamus
-            'MB':['MB'], # midbrain
-            'HB':['HB'], # hind brain
+            'HPF':['HPF','HIP'], # hippocampal formation
+            'AMY_BN':['AMY','BN','CN'], # amygdala + basal nucleus, cerebral nuclei
+            'Mig':['Lms','Rms','GE','FTS'], # migratory areas, transient structures of forebrain
+            'HY':['HY','HTH'], # hypothalamus
+            'TH':['TH','THM'], # thalamus
+            'MB':['MB','M'], # midbrain
+            'HB':['HB','H'], # hind brain
             'BS':['BS'], # brainstem 
             'CB':['CB'], # cerebellum
             'dev':['dev'], # developmental
-            'ft':['ft'], # fiber tracts
-            'Vs':['Vs'], # ventricles
-            'Ctx':['Ctx'] # fallback cortex 
+            'ft':['ft','FWM'], # fiber tracts
+            'Vs':['Vs','FV'], # ventricles
+            'Ctx':['Ctx','FGM'] # fallback cortex 
         }
 
         self.subtrees = {k:[] for k in self.groups}
 
         self.onto_lookup:dict[int,NodeRecord] = {} # id:(acronym,name,level,parentid,color_hex_triplet)
 
+        self.ontoids_by_group:dict[str,list] = {k:[] for k in self.groups}
+
         for elt in self.treenom:
             self._find_subtrees(elt)
             self.onto_lookup[elt['id']]=NodeRecord(elt['acronym'],elt['name'],0,0,'#'+elt['color_hex_triplet'])
+            if 'text' not in elt:
+                elt['text']=elt['name']
             if 'children' in elt:
                 for child in elt['children']:
                     self._dft(child,1,elt['id'])
@@ -67,22 +71,29 @@ class TreeHelper:
     
     def _dft(self, elt, level, parentid):
         self.onto_lookup[elt['id']]=NodeRecord(elt['acronym'],elt['name'],level,parentid,'#'+elt['color_hex_triplet'])
+        if 'text' not in elt:
+            elt['text']=elt['name']
         if 'children' in elt:
             for child in elt['children']:
                 self._dft(child,level+1,elt['id'])
         
 
-    def _find_subtrees(self,elt):
-        self._check_node(elt)
+    def _find_subtrees(self,elt, grprootname=None):
+        foundgrp=self._check_node(elt)
+        if foundgrp is not None:
+            self.ontoids_by_group[foundgrp].append(elt['id'])
+        if grprootname is not None:
+            self.ontoids_by_group[grprootname].append(elt['id'])
         if 'children' in elt:
             for child in elt['children']:
-                self._find_subtrees(child)
+                self._find_subtrees(child, foundgrp or grprootname)
 
     def _check_node(self,elt):
         for grpname, grpparents in self.groups.items():
             if elt['acronym'] in grpparents:
                 self.subtrees[grpname].append(elt)
-                    
+                return grpname
+        return None            
     # def get_group_by_acronym(self, rgnname):
     #     for grpname in self.subtrees:
     #         for subtr in self.subtrees[grpname]:
@@ -226,6 +237,7 @@ class TreeHelper:
         return idlist
     
     def get_ids_of_layered_areas(self):
+        # FIXME: this is dharani-specific - can be generalized to Allen ontology
         idlist = defaultdict(list)
         zoneprefixes = ['SGL-','MZ-','CP-','SP-','IZ-','SVZ-','VZ-']
 
