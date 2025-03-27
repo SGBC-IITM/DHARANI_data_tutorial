@@ -9,6 +9,9 @@ from collections import defaultdict
 from shapely.geometry import shape as make_shape
 
 class DharaniHelper:
+    """
+    Helper for simplified access to Dharani image and annotation data from AWS s3 bucket s3://dharani-fetal-brain-atlas
+    """
     def __init__(self, specimennum, downsample=3):
         """
         specimennum : [1,2,3,4,5]
@@ -27,9 +30,16 @@ class DharaniHelper:
             if elt.endswith('.tif'):
                 fname = os.path.basename(elt)
                 secnum = fname.split('_')[-1][:-4]
-                secnumbers.append(secnum)
+                secnumbers.append(int(secnum))
         return secnumbers
 
+    def get_section_urls(self, secnum:int):
+        baseurl_s3 = 's3://dharani-fetal-brain-atlas'
+        baseurl = 'https://dharani-fetal-brain-atlas.s3.us-west-2.amazonaws.com'
+        imgurl = f'{baseurl}/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'
+        annoturl = imgurl[:-4]+'.json'
+        return imgurl, annoturl
+    
     def get_sectionimage(self, secnum):
         s3url = f's3://dharani-fetal-brain-atlas/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'
         accessor = PyrTifAccessor(s3url)

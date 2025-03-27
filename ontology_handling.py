@@ -7,10 +7,16 @@ from rapidfuzz.process import extract as fuzzy_similarity
 from rapidfuzz import fuzz
 
 
-NodeRecord = namedtuple('NodeRecord','acronym,name,level,parentid,color_hex_triplet')
+NodeRecord = namedtuple('NodeRecord','acronym,name,color_hex_triplet,level,parentid,numchildren')
 
 class TreeHelper:
+    """
+    Abstracts ontology tree reading, searching and navigation for Dharani and Allen nomenclature
+    """
+
     def __init__(self, ontoname='dharani'):
+        """ ontoname: ['dharani', 'allen_devhuman'] """
+
         if ontoname == 'dharani':
             s3 = s3fs.S3FileSystem(anon=True)
             with s3.open('dharani-fetal-brain-atlas/ontology/ontology.json') as fp:
@@ -46,12 +52,17 @@ class TreeHelper:
 
         for elt in self.treenom:
             self._find_subtrees(elt)
-            self.onto_lookup[elt['id']]=NodeRecord(elt['acronym'],elt['name'],0,0,'#'+elt['color_hex_triplet'])
+
             if 'text' not in elt:
-                elt['text']=elt['name']
+                elt['text']=elt['acronym'] + ' : ' + elt['name']
+            
+            numchildren = 0
+            if 'children' in elt:
+                numchildren =len(elt['children'])
+            self.onto_lookup[int(elt['id'])]=NodeRecord(elt['acronym'],elt['name'],'#'+elt['color_hex_triplet'],0,0,numchildren)
             if 'children' in elt:
                 for child in elt['children']:
-                    self._dft(child,1,elt['id'])
+                    self._dft(child,1,int(elt['id']))
 
         # for elt in self.flatnom:
         #     if elt['id'] not in self.onto_lookup:
@@ -70,12 +81,18 @@ class TreeHelper:
         return outdict
     
     def _dft(self, elt, level, parentid):
-        self.onto_lookup[elt['id']]=NodeRecord(elt['acronym'],elt['name'],level,parentid,'#'+elt['color_hex_triplet'])
+        
         if 'text' not in elt:
-            elt['text']=elt['name']
+            elt['text']=elt['acronym'] + ' : ' + elt['name']
+        
+        numchildren = 0
+        if 'children' in elt:
+            numchildren =len(elt['children'])
+        self.onto_lookup[int(elt['id'])]=NodeRecord(elt['acronym'],elt['name'],'#'+elt['color_hex_triplet'],level,parentid,numchildren)
+
         if 'children' in elt:
             for child in elt['children']:
-                self._dft(child,level+1,elt['id'])
+                self._dft(child,level+1,int(elt['id']))
         
 
     def _find_subtrees(self,elt, grprootname=None):
@@ -127,6 +144,7 @@ class TreeHelper:
     #     return False
               
     def get_ancestor_ids(self, ontoid:int):
+        """get a list of ancestor ids, general to specialized"""
         idlist = []
         lastrec = self.onto_lookup[ontoid]
         while lastrec.parentid != 0:
@@ -135,7 +153,7 @@ class TreeHelper:
 
         return list(reversed(idlist))
     
-    def _get_node_by_ontoid(self,ontoid):
+    def _get_node_by_ontoid(self,ontoid:int):
         ancestorids = self.get_ancestor_ids(ontoid)
         ancnode = None
         
@@ -161,12 +179,18 @@ class TreeHelper:
 
         return node
 
+    def get_children_ids(self, ontoid:int):
+        nd = self._get_node_by_ontoid(ontoid)
+        if 'children' in nd:
+            return [int(ch['id']) for ch in nd['children']]
+        return []
+
     def get_sibling_ids(self,ontoid:int):
         
-        parentid = self.onto_lookup[ontoid].parent
-        parentnode = self.get_node_by_ontoid(parentid)
+        parentid = self.onto_lookup[ontoid].parentid
+        parentnode = self._get_node_by_ontoid(parentid)
 
-        siblingids = [elt['id'] for elt in parentnode['children']]
+        siblingids = [int(elt['id']) for elt in parentnode['children']]
         
         return siblingids
     
@@ -253,6 +277,11 @@ class TreeHelper:
         for root in self.subtrees[grpname]:
             self._show_children(root)
 
+
+    def print_subtree_at_id(self, ontoid:int):
+        nd = self._get_node_by_ontoid(ontoid)
+        lev = self.onto_lookup[ontoid].level
+        self._show_children(nd,lev)
 
     def search(self, searchstr, partial=False, num_results=5):
         # set num_results to -1 for no limit
