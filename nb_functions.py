@@ -13,7 +13,7 @@ Annotation = Dict[int,shapely.Geometry]
 
 def print_rec(ontoid, rec, prefix=''):    
     outstr="".join(['&emsp;']*rec.level)+f'{prefix} {ontoid} {rec.acronym} {rec.name} {rec.level} '
-    if len(prefix)==0:
+    if len(prefix)==0 or prefix[:2]=='(+':
         display(HTML(f'<p>{outstr}<span style="display:inline-block;width:20px;height:12px;padding:0px;background-color:{rec.color_hex_triplet};"></span></p>'))
     else:
         display(HTML(f'<p>{outstr}</p>'))
@@ -22,31 +22,66 @@ def print_rec(ontoid, rec, prefix=''):
 def plot_shape(shp,color):
     plot_polygon(shp, add_points=False, facecolor=color, edgecolor='k')
 
-def display_annotation(im_arr, annot:'Annotation', ontohelper:'TreeHelper', selectedlev=None):
+def display_annotation(im_arr, annot:'Annotation', ontohelper:'TreeHelper', selectedlev=None, showtree=True):
+    if showtree:
+        display_annotation_tree(annot, ontohelper, selectedlev)
+
     plt.figure(figsize=(12,8))
     plt.subplot(1,2,1)
     plt.imshow(im_arr)
     
     plt.subplot(1,2,2)
     plt.imshow(im_arr)
+    
+    displayedids = []
     for ontoid,shp in sorted(annot.items()):
         rec = ontohelper.onto_lookup[ontoid]
 
         if selectedlev is None or rec.level == selectedlev:
-            print_rec(ontoid,rec)
+            # print_rec(ontoid,rec)
             color = rec.color_hex_triplet
             plot_shape(shp,color)
+            displayedids.append(ontoid)
 
-def display_annotation_tree(annot:'Annotation', ontohelper:'TreeHelper'):
+    return displayedids
+
+
+def display_annotation_tree(annot:'Annotation', ontohelper:'TreeHelper', selectedlev=None):
     reachable = get_reachable_parents(annot,ontohelper)
 
+    
     for par in reachable:
+        parrec = None
+        if par>0:
+            parrec = ontohelper.onto_lookup[par]
+        if selectedlev is not None:
+            if parrec is None:
+                continue
+            if parrec.level!=selectedlev-1 and parrec.level!=selectedlev:
+                continue
+            
         ann = reachable[par][0]
         if len(ann)>0:
-            print_rec(par,ontohelper.onto_lookup[par],'#')
+            fullname, fullacro = ontohelper.get_full_name_by_ontoid(par)
+            if selectedlev is not None:
+                if parrec is not None:
+                    if parrec.level==selectedlev:
+                        print_rec(par, parrec, f'(+{len(ann)}) {fullacro}')
+                    else:  
+                        print_rec(par, parrec, '#'+fullacro)
+            else:
+                if parrec is not None:
+                    print_rec(par, parrec, '#'+fullacro)
+
             for oid in ann:
-                print_rec(oid,ontohelper.onto_lookup[oid])
+                rec = ontohelper.onto_lookup[oid]
                 
+                if selectedlev is not None:
+                    if rec.level!=selectedlev:                
+                        continue
+                print_rec(oid,rec)
+        
+
 #%% for showing jstree
 
 html_head_jstree ="""

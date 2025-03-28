@@ -146,12 +146,24 @@ class TreeHelper:
     def get_ancestor_ids(self, ontoid:int):
         """get a list of ancestor ids, general to specialized"""
         idlist = []
-        lastrec = self.onto_lookup[ontoid]
-        while lastrec.parentid != 0:
-            idlist.append(lastrec.parentid)
-            lastrec = self.onto_lookup[lastrec.parentid]
+        if ontoid>0:
+            lastrec = self.onto_lookup[ontoid]
+            while lastrec.parentid != 0:
+                idlist.append(lastrec.parentid)
+                lastrec = self.onto_lookup[lastrec.parentid]
 
         return list(reversed(idlist))
+    
+    def get_full_name_by_ontoid(self,ontoid:int):
+        anclist = self.get_ancestor_ids(ontoid)
+        fullname = ""
+        fullacro = ""
+        for anc in anclist:
+            ancrec = self.onto_lookup[anc]
+            fullname+=ancrec.name+'/'
+            fullacro+=ancrec.acronym+'/'
+
+        return fullname[:-1], fullacro[:-1] # skip trailing /
     
     def _get_node_by_ontoid(self,ontoid:int):
         ancestorids = self.get_ancestor_ids(ontoid)

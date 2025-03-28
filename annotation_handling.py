@@ -100,7 +100,7 @@ def get_level_ids(annot:'Annotation', ontohelper:'TreeHelper'):
     return level_ids
 
 
-def get_reachable_parents(annot:'Annotation', ontohelper:TreeHelper):
+def get_reachable_parents(annot:'Annotation', ontohelper:'TreeHelper'):
     reachable1 = defaultdict(list) # parent: [annotated]
     reachable2 = defaultdict(list) # parent: [aggregatable]
 

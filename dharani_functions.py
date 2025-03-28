@@ -2,7 +2,7 @@ import s3fs
 import json
 import numpy as np
 import os
-
+from scipy.ndimage import zoom
 from image_access import PyrTifAccessor
 
 from collections import defaultdict
@@ -17,9 +17,9 @@ class DharaniHelper:
         specimennum : [1,2,3,4,5]
 
         mpp = 2^downsample
-        downsample = 3 [default] => mpp=8
+        downsample = 3 [default] => mpp=8 ; allowed [0..7]
         """
-
+        assert downsample >=0 and downsample <= 7 
         self.specimennum = specimennum
         self.downsample = downsample
         self.s3 = s3fs.S3FileSystem(anon=True)
@@ -43,7 +43,24 @@ class DharaniHelper:
     def get_sectionimage(self, secnum):
         s3url = f's3://dharani-fetal-brain-atlas/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'
         accessor = PyrTifAccessor(s3url)
-        return accessor.get_page(0,self.downsample,0)
+        maxlevel = len(accessor.infodict['series'][0]['levels'])-1
+        assert self.downsample > 2, "Section image access for mpp<8 not supported"
+        lev = self.downsample
+        postresizefactor = 1
+        if self.downsample > maxlevel:
+            lev = maxlevel
+            postresizefactor = 2**(self.downsample - lev)
+        
+        page = accessor.get_page(0,lev,0)
+
+        if postresizefactor > 1:
+            shp = page.shape
+            out = np.zeros((shp[0]//postresizefactor, shp[1]//postresizefactor, shp[2]),page.dtype)
+            for ch in range(3):
+                out[...,ch] = zoom(page[...,ch],1/postresizefactor)
+        else:
+            out = page
+        return out
 
     def get_annotation(self, secnum):
         
