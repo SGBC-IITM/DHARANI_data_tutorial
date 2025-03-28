@@ -156,6 +156,30 @@ def get_nonreachable(annot:'Annotation', ontohelper:'TreeHelper'):
             leaves.append(oid)
     return nrdict, leaves
 
+def _remove_small_interiors(shp:shapely.Geometry):
+    if shp.geom_type=='MultiPolygon':
+        polylist = shp.geoms
+    else:
+        polylist = [shp]
+
+    clean_polylist = []
+    for poly in polylist:
+        clean_interiors = []
+        for ring_i in poly.interiors:
+            rlen = ring_i.length
+            ar = shapely.Polygon(ring_i).area
+            if rlen/ar>150: #XXX: MAGIC
+                continue
+            if rlen>10 and ar>10:
+                clean_interiors.append(ring_i)
+
+        clean_poly = shapely.Polygon(shell=poly.exterior, holes=clean_interiors)
+        clean_polylist.append(clean_poly)
+    
+    if len(clean_polylist)>1:
+        return shapely.MultiPolygon(clean_polylist)
+    else:
+        return clean_polylist[0]
 
 def get_supershape(ontoid:int, annot:'Annotation', ontohelper:'TreeHelper'):
     #  construct parent shapes by merging shapes 
@@ -172,7 +196,7 @@ def get_supershape(ontoid:int, annot:'Annotation', ontohelper:'TreeHelper'):
             if parshp is None:
                 parshp = annot[annot_id]
             else:
-                parshp = parshp.union(annot[annot_id])
+                parshp = _remove_small_interiors(parshp.union(annot[annot_id])).buffer(0)
     
     return parshp, chlist
 

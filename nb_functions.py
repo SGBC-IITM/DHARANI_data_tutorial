@@ -7,7 +7,7 @@ import shapely
 
 from typing import Dict, List
 from ontology_handling import TreeHelper
-from annotation_handling import get_reachable_parents
+from annotation_handling import get_reachable_parents, get_supershape
 
 Annotation = Dict[int,shapely.Geometry]
 
@@ -22,33 +22,67 @@ def print_rec(ontoid, rec, prefix=''):
 def plot_shape(shp,color):
     plot_polygon(shp, add_points=False, facecolor=color, edgecolor='k')
 
-def display_annotation(im_arr, annot:'Annotation', ontohelper:'TreeHelper', selectedlev=None, showtree=True):
-    if showtree:
-        display_annotation_tree(annot, ontohelper, selectedlev)
-
+def display_shape(im_arr, shp, color):
     plt.figure(figsize=(12,8))
     plt.subplot(1,2,1)
     plt.imshow(im_arr)
     
     plt.subplot(1,2,2)
     plt.imshow(im_arr)
+    plot_shape(shp,color)
+
+
+def display_annotation(im_arr, annot:'Annotation', ontohelper:'TreeHelper', selectedlev=None, ontoids=[], showtree=True):
+    
+    if showtree:
+        display_annotation_tree(annot, ontohelper, selectedlev, ontoids)
+
+    plt.figure(figsize=(12,8))
+    nplots = 2
+    if len(ontoids)>0:
+        nplots = 3
+
+    plt.subplot(1,nplots,1)
+    plt.imshow(im_arr)
+    
+    plt.subplot(1,nplots,2)
+    plt.imshow(im_arr)
+
     
     displayedids = []
+    superannot = {}
+
     for ontoid,shp in sorted(annot.items()):
         rec = ontohelper.onto_lookup[ontoid]
 
-        if selectedlev is None or rec.level == selectedlev:
-            # print_rec(ontoid,rec)
+        if selectedlev is None or rec.level == selectedlev or\
+              ontoid in ontoids or rec.parentid in ontoids:
             color = rec.color_hex_triplet
             plot_shape(shp,color)
             displayedids.append(ontoid)
 
-    return displayedids
+    if nplots>2:
+        plt.subplot(1,nplots,3)
+        plt.imshow(im_arr)
+
+        for ontoid in ontoids:
+            if ontoid in annot:
+                shp = annot[ontoid]
+                
+            else:
+                shp,chlist = get_supershape(ontoid, annot, ontohelper)
+                superannot[ontoid]=shp
+
+            rec = ontohelper.onto_lookup[ontoid]
+            color = rec.color_hex_triplet
+            plot_shape(shp,color)
+
+    return displayedids, superannot
 
 
-def display_annotation_tree(annot:'Annotation', ontohelper:'TreeHelper', selectedlev=None):
+def display_annotation_tree(annot:'Annotation', ontohelper:'TreeHelper', selectedlev=None, ontoids=[]):
+
     reachable = get_reachable_parents(annot,ontohelper)
-
     
     for par in reachable:
         parrec = None
@@ -76,10 +110,9 @@ def display_annotation_tree(annot:'Annotation', ontohelper:'TreeHelper', selecte
             for oid in ann:
                 rec = ontohelper.onto_lookup[oid]
                 
-                if selectedlev is not None:
-                    if rec.level!=selectedlev:                
-                        continue
-                print_rec(oid,rec)
+                if par in ontoids or selectedlev is None or rec.level==selectedlev:
+                    print_rec(oid,rec)
+                
         
 
 #%% for showing jstree
