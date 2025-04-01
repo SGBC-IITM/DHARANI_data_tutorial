@@ -4,6 +4,9 @@ import numpy as np
 import os
 from scipy.ndimage import zoom
 from image_access import PyrTifAccessor
+from PIL import Image
+from io import BytesIO
+import base64
 
 from collections import defaultdict
 from shapely.geometry import shape as make_shape
@@ -36,9 +39,27 @@ class DharaniHelper:
     def get_section_urls(self, secnum:int):
         baseurl_s3 = 's3://dharani-fetal-brain-atlas'
         baseurl = 'https://dharani-fetal-brain-atlas.s3.us-west-2.amazonaws.com'
-        imgurl = f'{baseurl}/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'
-        annoturl = imgurl[:-4]+'.json'
+
+        annoturl = f'{baseurl}/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.json'
+        imgurl = self._get_base64_imgurl(secnum)
+        
         return imgurl, annoturl
+    
+    def get_zoomable_img_url(self, secnum:int):
+        baseurl_s3 = f's3://dharani-fetal-brain-atlas'
+        baseurl = 'https://dharani-fetal-brain-atlas.s3.us-west-2.amazonaws.com'
+
+        tifurl = f'{baseurl}/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'
+        return tifurl
+    
+    def _get_base64_imgurl(self,secnum):
+        secimg_np = self.get_sectionimage(secnum)
+        pil_img = Image.fromarray(secimg_np)
+        buffer = BytesIO()
+        pil_img.save(buffer, format='JPEG')
+        base64_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+        return f'data:image/png;base64,{base64_str}'
     
     def get_sectionimage(self, secnum):
         s3url = f's3://dharani-fetal-brain-atlas/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'

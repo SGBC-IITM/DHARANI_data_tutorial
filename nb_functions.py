@@ -11,12 +11,12 @@ from annotation_handling import get_reachable_parents, get_supershape
 
 Annotation = Dict[int,shapely.Geometry]
 
-def print_rec(ontoid, rec, prefix=''):    
+def _get_print_rec(ontoid, rec, prefix=''):    
     outstr="".join(['&emsp;']*rec.level)+f'{prefix} {ontoid} {rec.acronym} {rec.name} {rec.level} '
     if len(prefix)==0 or prefix[:2]=='(+':
-        display(HTML(f'<p>{outstr}<span style="display:inline-block;width:20px;height:12px;padding:0px;background-color:{rec.color_hex_triplet};"></span></p>'))
+        return f'<p>{outstr}<span style="display:inline-block;width:20px;height:12px;padding:0px;background-color:{rec.color_hex_triplet};"></span></p>'
     else:
-        display(HTML(f'<p>{outstr}</p>'))
+        return f'<p>{outstr}</p>'
 
 
 def plot_shape(shp,color):
@@ -32,7 +32,7 @@ def display_shape(im_arr, shp, color):
     plot_shape(shp,color)
 
 
-def display_annotation(im_arr, annot:'Annotation', ontohelper:'TreeHelper', selectedlev=None, ontoids=[], showtree=True):
+def display_annotation(im_arr, annot:'Annotation', ontohelper:'TreeHelper', selectedlev=None, ontoids=[], showtree=True, axislimit=[]):
     
     if showtree:
         display_annotation_tree(annot, ontohelper, selectedlev, ontoids)
@@ -44,10 +44,13 @@ def display_annotation(im_arr, annot:'Annotation', ontohelper:'TreeHelper', sele
 
     plt.subplot(1,nplots,1)
     plt.imshow(im_arr)
+    if len(axislimit)==4:
+        plt.axis(axislimit)
     
     plt.subplot(1,nplots,2)
     plt.imshow(im_arr)
-
+    if len(axislimit)==4:
+        plt.axis(axislimit)
     
     displayedids = []
     superannot = {}
@@ -64,6 +67,8 @@ def display_annotation(im_arr, annot:'Annotation', ontohelper:'TreeHelper', sele
     if nplots>2:
         plt.subplot(1,nplots,3)
         plt.imshow(im_arr)
+        if len(axislimit)==4:
+            plt.axis(axislimit)
 
         for ontoid in ontoids:
             if ontoid in annot:
@@ -83,7 +88,7 @@ def display_annotation(im_arr, annot:'Annotation', ontohelper:'TreeHelper', sele
 def display_annotation_tree(annot:'Annotation', ontohelper:'TreeHelper', selectedlev=None, ontoids=[]):
 
     reachable = get_reachable_parents(annot,ontohelper)
-    
+    outstr = ''
     for par in reachable:
         parrec = None
         if par>0:
@@ -100,20 +105,23 @@ def display_annotation_tree(annot:'Annotation', ontohelper:'TreeHelper', selecte
             if selectedlev is not None:
                 if parrec is not None:
                     if parrec.level==selectedlev:
-                        print_rec(par, parrec, f'(+{len(ann)}) {fullacro}')
+                        outstr+=_get_print_rec(par, parrec, f'(+{len(ann)}) {fullacro}')
                     else:  
-                        print_rec(par, parrec, '#'+fullacro)
+                        outstr+=_get_print_rec(par, parrec, '#'+fullacro)
             else:
                 if parrec is not None:
-                    print_rec(par, parrec, '#'+fullacro)
+                    outstr+=_get_print_rec(par, parrec, '#'+fullacro)
 
             for oid in ann:
                 rec = ontohelper.onto_lookup[oid]
                 
                 if par in ontoids or selectedlev is None or rec.level==selectedlev:
-                    print_rec(oid,rec)
+                    outstr+=_get_print_rec(oid,rec)
                 
-        
+    display(HTML(
+        '<div style="width: 90%; height: 300px; overflow-y: scroll; border: 1px solid black; padding: 10px;">'+
+        outstr+'</div>'))
+
 
 #%% for showing jstree
 
