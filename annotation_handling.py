@@ -39,6 +39,25 @@ def shape_orientation(shape:shapely.Geometry):
             return _line_orientation(p1, p2)
     return 0
 
+def get_max_width(shape:shapely.Geometry):
+    # find largest incircle
+    center = shape.representative_point()
+    radius = shape.boundary.distance(center)
+    
+    return 2*radius
+
+def get_properties(shape:shapely.Geometry):
+    return {
+        'pt': shape.representative_point(),
+        'area': shape.area,
+        'perimeter': shape.length,
+        'numcomp': len(shape.geoms),
+        'obb': shape.minimum_rotated_rectangle,
+        'majoraxis': get_longest_side_line(shape)[:2],
+        'maxwidth': get_max_width(shape), 
+        'orientation': shape_orientation(shape),
+    }
+
 
 def get_adjacency(annot:'Annotation'):
     edges = {'touches':[], 'crosses':[], 'intersects':[], 'overlaps':[]}
@@ -56,18 +75,6 @@ def get_adjacency(annot:'Annotation'):
                 edges['overlaps'].append((onto_i,onto_j))    
                 
     return edges
-
-
-def get_properties(shape:shapely.Geometry):
-    return {
-        'pt': shape.representative_point(),
-        'area': shape.area,
-        'perimeter': shape.length,
-        'numcomp': len(shape.geoms),
-        'obb': shape.minimum_rotated_rectangle,
-        'majoraxis': get_longest_side_line(shape)[:2],
-        'smallestwidth': 0, # FIXME: this should help to find at what zoom the structure will start to dissolve
-    }
 
 
 def nearest_shape(shp:shapely.Geometry,otherlist:List[shapely.Geometry]):

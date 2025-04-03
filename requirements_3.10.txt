@@ -10,3 +10,5 @@ svgpathtools
 svg.path
 shapely
 rapidfuzz
+alphashape
+triangle
