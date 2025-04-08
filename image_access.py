@@ -24,6 +24,7 @@ class PyrTifAccessor:
                         for page in lev.pages:
                             pages['pages'].append({
                                 'imagewidth':page.imagewidth,
+                                'imageheight':page.imagelength, # not used here, just for helper.get_imagedims
                                 'tilewidth':page.tilewidth,
                                 'tilelength':page.tilelength,
                                 'dtype':page.dtype,

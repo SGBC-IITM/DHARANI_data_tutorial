@@ -95,6 +95,13 @@ class AllenHelper:
         self.graphic_groups = fetch_graphic_groups( metadata )
         self.downsample = downsample
 
+    def get_specimenname(self):
+        return 'Allen_atlas_'+str(self.atlas_id)
+    
+    def get_imagedims(self, secnum:int):
+        img = self._get_img(secnum)
+        return img['image_width'], img['image_height']
+    
     def get_section_numbers(self):
         return [elt['section_number'] for elt in self.images]
 
@@ -108,6 +115,10 @@ class AllenHelper:
         image_url = get_image_url(self.atlas_id, img, self.downsample, False)
         annot_url = get_svg_url(self.atlas_id, img, self.graphic_groups, self.downsample)
         return image_url, annot_url
+    
+    def get_zoomable_img_url(self, secnum:int):
+        img = self._get_img(secnum)
+        return get_image_url(self.atlas_id, img, self.downsample, False)
 
     def get_sectionimage(self,secnum:int):
         imgurl, annoturl = self.get_section_urls(secnum)
@@ -186,7 +197,7 @@ def _path_to_coords(path_d, scale):
         # if ii == 0:
         #     coords.append(pt1)
         # coords.append(pt2)
-        
+
         for t in np.linspace(0, 1, num=10):  # More points = smoother
             pt = seg.point(t)
             pt2 = (pt.real,pt.imag)

@@ -15,7 +15,7 @@ class DharaniHelper:
     """
     Helper for simplified access to Dharani image and annotation data from AWS s3 bucket s3://dharani-fetal-brain-atlas
     """
-    def __init__(self, specimennum, downsample=3):
+    def __init__(self, specimennum:int, downsample=3):
         """
         specimennum : [1,2,3,4,5]
 
@@ -27,6 +27,9 @@ class DharaniHelper:
         self.downsample = downsample
         self.s3 = s3fs.S3FileSystem(anon=True)
 
+    def get_specimenname(self):
+        return 'Dharani_Specimen_'+str(self.specimennum)
+    
     def get_section_numbers(self):
         secnumbers = []
         for elt in self.s3.ls(f'dharani-fetal-brain-atlas/data2d/specimen_{self.specimennum}'):
@@ -41,7 +44,12 @@ class DharaniHelper:
         baseurl = 'https://dharani-fetal-brain-atlas.s3.us-west-2.amazonaws.com'
 
         annoturl = f'{baseurl}/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.json'
-        imgurl = self._get_base64_imgurl(secnum)
+        if self.downsample > 2:
+            imgurl = self._get_base64_imgurl(secnum)
+        elif self.downsample==0:
+            imgurl =  annoturl.replace('.json','.tif')
+        else: 
+            raise NotImplementedError # downsample = 1 or 2
         
         return imgurl, annoturl
     
@@ -52,6 +60,12 @@ class DharaniHelper:
         tifurl = f'{baseurl}/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'
         return tifurl
     
+    def get_imagedims(self, secnum:int):
+        s3url = f's3://dharani-fetal-brain-atlas/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'
+        accessor = PyrTifAccessor(s3url)
+        info = accessor.get_info(0,0,0)
+        return info['imagewidth'], info['imageheight']
+    
     def _get_base64_imgurl(self,secnum):
         secimg_np = self.get_sectionimage(secnum)
         pil_img = Image.fromarray(secimg_np)
@@ -61,7 +75,7 @@ class DharaniHelper:
 
         return f'data:image/png;base64,{base64_str}'
     
-    def get_sectionimage(self, secnum):
+    def get_sectionimage(self, secnum:int):
         s3url = f's3://dharani-fetal-brain-atlas/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'
         accessor = PyrTifAccessor(s3url)
         maxlevel = len(accessor.infodict['series'][0]['levels'])-1
