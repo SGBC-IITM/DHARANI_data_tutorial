@@ -33,7 +33,7 @@ class DharaniHelper:
     def get_section_numbers(self):
         secnumbers = []
         for elt in self.s3.ls(f'dharani-fetal-brain-atlas/data2d/specimen_{self.specimennum}'):
-            if elt.endswith('.tif'):
+            if elt.endswith('.tif') and '_geo.tif' not in elt:
                 fname = os.path.basename(elt)
                 secnum = fname.split('_')[-1][:-4]
                 secnumbers.append(int(secnum))
