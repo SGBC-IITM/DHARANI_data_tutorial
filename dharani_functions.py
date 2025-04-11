@@ -134,7 +134,7 @@ class DharaniHelper:
         return outdict
 
     def get_viewer_url(self, secnum):
-        baseurl = 'https://dharani.humanbrain.in'
+        baseurl = 'https://brainportal.humanbrain.in'
         url = f'{baseurl}/code/2dviewer/annotation/public?data={self.specimennum-1}&region=-1&section={secnum}'
         return url
     

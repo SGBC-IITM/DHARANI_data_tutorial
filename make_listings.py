@@ -18,7 +18,7 @@ def main(helper):
 
     with open(f'directory-listings/{specimenname}.csv','wt') as listing:
         listing.write('section_number, image_url, image_format, image_width, image_height, atlas_url, atlas_format, viewer_url\n')
-        for secno in tqdm(secnumbers):
+        for secno in tqdm(sorted(secnumbers)):
             
             imgurl,annoturl = helper.get_section_urls(secno)
             imgwidth,imgheight = helper.get_imagedims(secno)
