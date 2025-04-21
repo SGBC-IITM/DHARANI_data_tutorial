@@ -12,3 +12,4 @@ shapely
 rapidfuzz
 alphashape
 triangle
+joblib

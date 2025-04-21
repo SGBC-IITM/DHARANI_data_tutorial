@@ -15,23 +15,24 @@ def get_longest_side_line(shape:shapely.Geometry, side='right'):
         mbr_line_lengths = [line.length for line in mbr_lines]
         lineidx = np.argmax(mbr_line_lengths)
 
+        long_length = mbr_line_lengths[lineidx]
         short_length = mbr_line_lengths[(lineidx + 1) % 4]
 
         p1, p2 = mbr_points[lineidx], mbr_points[lineidx + 1]
         p1a, p2a = mbr_points[(lineidx + 2) % 4], mbr_points[(lineidx + 3) % 4]
 
         if (side == 'right' and max(p1a[0], p2a[0]) > max(p1[0], p2[0])) or (side == 'left' and min(p1a[0], p2a[0]) < min(p1[0], p2[0])):
-            return p1a, p2a, short_length
+            return p1a, p2a, long_length, short_length
 
-        return p1, p2, short_length
-    return None, None, 0    
+        return p1, p2, long_length, short_length
+    return None, None, 0 ,0   
 
 
 def _line_orientation(p1, p2):
     return np.arctan2(p2[1] - p1[1], p2[0] - p1[0]) * 180 / np.pi
     
 def shape_orientation(shape:shapely.Geometry):
-    p1, p2, _ = get_longest_side_line(shape)
+    p1, p2, long_length, short_length = get_longest_side_line(shape)
     if p1 is not None:
         if p1[0] > p2[0]:
             return _line_orientation(p2, p1)
@@ -47,15 +48,31 @@ def get_max_width(shape:shapely.Geometry):
     return 2*radius
 
 def get_properties(shape:shapely.Geometry):
+    num_comp = 1
+    if shape.geom_type=='MultiPolygon':
+        num_comp = len(shape.geoms)
+
+    p1,p2, long_length, short_length = get_longest_side_line(shape)
+
+    ori = None
+    if p1 is not None:
+        if p1[0] > p2[0]:
+            ori = _line_orientation(p2, p1)
+        else:
+            ori = _line_orientation(p1, p2)
+    
     return {
-        'pt': shape.representative_point(),
+        'pt': shape.representative_point().coords[0],
         'area': shape.area,
         'perimeter': shape.length,
-        'numcomp': len(shape.geoms),
+        'numcomp': num_comp,
+        'bbox': shape.bounds,
+        'aspectratio': long_length/short_length,
         'obb': shape.minimum_rotated_rectangle,
-        'majoraxis': get_longest_side_line(shape)[:2],
+        'majoraxislength': long_length,
+        'minoraxislength': short_length,
         'maxwidth': get_max_width(shape), 
-        'orientation': shape_orientation(shape),
+        'orientation': ori,
     }
 
 

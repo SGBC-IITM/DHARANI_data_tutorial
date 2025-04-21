@@ -79,15 +79,23 @@ def get_svg_url(atlas_id, img, graphic_groups, downsample): #, output_directory)
 #%%
 
 class AllenHelper:
+    """
+    Helper for uniform access to Allen image and annotation data, compatible 
+    with dharani_functions.py
+    """
+
     def __init__(self, atlas_id:int = 3, downsample:int = 3):
         """
+        Args:
+            atlas_id : [3, 287730656, 138322603]
+
+                mpp = 2^downsample
+            downsample = 3 [default] => mpp=8 ; allowed [0..7]
+
         atlas ids:
         * 3 = 21 pcw cerebrum [default]
         * 287730656 = 21 pcw brainstem
         * 138322603 = 15 pcw
-
-        mpp = 2^downsample
-        downsample=3 [default] => mpp=8
         """
         self.atlas_id = atlas_id
         metadata = fetch_atlas_metadata( atlas_id )
@@ -96,43 +104,79 @@ class AllenHelper:
         self.downsample = downsample
 
     def get_specimenname(self):
+        """
+        Returns string name of this specimen
+        """
+
         return 'Allen_atlas_'+str(self.atlas_id)
-    
+
+    def __str__(self):    
+        return f'{self.get_specimenname()}, downsample={self._downsample}'
+
     def get_imagedims(self, secnum:int):
+        """
+        returns original image dimensions (does not heed the constructor's downsample argument) 
+        for this section.
+        """        
         img = self._get_img(secnum)
         return img['image_width'], img['image_height']
     
     def get_section_numbers(self):
+        """        
+        Returns list of section numbers in this specimen
+        """
         return [elt['section_number'] for elt in self.images]
 
     def _get_img(self,secnum:int):
         secnos = self.get_section_numbers()
-        img = self.images[secnos.index(secnum)]
+        img = self.images[secnos.index(secnum)] # this only has properties, not the pixel data
         return img
 
     def get_section_urls(self, secnum:int):
+        """
+        Returns image and annotation urls for this section
+        Args:
+            secnum: section number
+        Returns:
+            image url, annotation url
+            image url: url to access the section image
+            annotation url: url to access the annotation json
+
+        """
+
         img = self._get_img(secnum)
         image_url = get_image_url(self.atlas_id, img, self.downsample, False)
         annot_url = get_svg_url(self.atlas_id, img, self.graphic_groups, self.downsample)
         return image_url, annot_url
     
     def get_zoomable_img_url(self, secnum:int):
+        """
+        Returns zoomable image url for this section
+        """
         img = self._get_img(secnum)
         return get_image_url(self.atlas_id, img, self.downsample, False)
 
     def get_sectionimage(self,secnum:int):
+        """
+        returns section image as numpy array.
+        For this to work, constructor's downsample argument should be >2.
+        """
         imgurl, annoturl = self.get_section_urls(secnum)
         req = requests.get(imgurl, timeout=500, stream=True)
         im = Image.open(BytesIO(req.content))
         return np.array(im)
     
     def get_annotation(self, secnum:int):
+        """
+        returns annotation as dict where
+        keys are ontoid, values are shapely.Geometry
+        """
         imgurl, annoturl = self.get_section_urls(secnum)
         req = requests.get(annoturl, timeout=500)
         
         outdict = {}
         if req.status_code==200:
-            # FIXME: MAGIC: 3 was found empirically 
+            # FIXME: MAGIC: numerator 3 was found empirically 
             shapes = get_svg_paths_as_shapes(req.text, scale=3/(2**(self.downsample)))
 
             for ontoid,shplist in shapes.items():
@@ -148,11 +192,30 @@ class AllenHelper:
         
     
     def get_viewer_url(self, secnum:int):
+        """ 
+        returns the web url which shows the Allen Brainspan section
+        """
         baseurl = 'https://atlas.brain-map.org'
         img = self._get_img(secnum)
         plate=img['lims1_id']
         url = f'{baseurl}/atlas?atlas={self.atlas_id}&plate={plate}&zoom=-5'
         return url
+
+    def get_annotations(self):
+        """
+        returns all annotations as dict where
+        keys are ontoids, values are dict of secno:shapely.Geometry
+        """
+
+        secnos = self.get_section_numbers()
+        outdict = defaultdict(dict)
+        for secnum in secnos:
+            annot_seci = self.get_annotation(secnum)
+            for ontoid,shp in annot_seci.items():
+                outdict[ontoid][secnum]=shp
+
+        return outdict
+    
 
 #%% util functions for handling svg, shapely 
 

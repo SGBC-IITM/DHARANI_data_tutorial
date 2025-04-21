@@ -1,6 +1,6 @@
 import json
 import s3fs
-from collections import defaultdict, namedtuple
+from collections import defaultdict, namedtuple, deque
 import requests
 
 from rapidfuzz.process import extract as fuzzy_similarity
@@ -154,6 +154,22 @@ class TreeHelper:
 
         return list(reversed(idlist))
     
+    def get_successor_ids(self, ontoid:int):
+        """get a list of successor ids (child, child of child, etc), general to specialized"""
+        
+        nd = self._get_node_by_ontoid(ontoid)
+        idlist = self._bft(nd)
+        return idlist
+
+    def _bft(self, elt):
+        nodes_to_visit=deque([elt]) # one element deque
+        idlist = []
+        while nodes_to_visit:
+            node = nodes_to_visit.popleft()
+            idlist.append(node['id'])
+            nodes_to_visit.extend(node.get('children',[]))
+        return idlist[1:] # leave the first pushed id (elt itself)   
+        
     def get_full_name_by_ontoid(self,ontoid:int):
         anclist = self.get_ancestor_ids(ontoid)
         fullname = ""
@@ -163,7 +179,8 @@ class TreeHelper:
             fullname+=ancrec.name+'/'
             fullacro+=ancrec.acronym+'/'
 
-        return fullname[:-1], fullacro[:-1] # skip trailing /
+        myrec = self.onto_lookup[ontoid]
+        return fullname[:-1], fullacro[:-1], myrec.name, myrec.acronym # skip trailing /
     
     def _get_node_by_ontoid(self,ontoid:int):
         ancestorids = self.get_ancestor_ids(ontoid)

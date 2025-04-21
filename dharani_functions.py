@@ -11,28 +11,42 @@ import base64
 from collections import defaultdict
 from shapely.geometry import shape as make_shape
 
+s3 = s3fs.S3FileSystem(anon=True)
+
 class DharaniHelper:
     """
-    Helper for simplified access to Dharani image and annotation data from AWS s3 bucket s3://dharani-fetal-brain-atlas
+    Helper for simplified access to Dharani image and annotation data from 
+    AWS s3 bucket s3://dharani-fetal-brain-atlas
     """
+
     def __init__(self, specimennum:int, downsample=3):
         """
-        specimennum : [1,2,3,4,5]
+        Args:
+            specimennum : [1,2,3,4,5]
 
-        mpp = 2^downsample
-        downsample = 3 [default] => mpp=8 ; allowed [0..7]
+                mpp = 2^downsample
+            downsample = 3 [default] => mpp=8 ; allowed [0..7]
         """
         assert downsample >=0 and downsample <= 7 
-        self.specimennum = specimennum
-        self.downsample = downsample
-        self.s3 = s3fs.S3FileSystem(anon=True)
+        self._specimennum = specimennum
+        self._downsample = downsample
+        
+
+    def __str__(self):
+        return f'{self.get_specimenname()}, downsample={self._downsample}'
 
     def get_specimenname(self):
-        return 'Dharani_Specimen_'+str(self.specimennum)
+        """
+        Returns string name of this specimen
+        """
+        return 'Dharani_Specimen_'+str(self._specimennum)
     
     def get_section_numbers(self):
+        """        
+        Returns list of section numbers in this specimen
+        """
         secnumbers = []
-        for elt in self.s3.ls(f'dharani-fetal-brain-atlas/data2d/specimen_{self.specimennum}'):
+        for elt in s3.ls(f'dharani-fetal-brain-atlas/data2d/specimen_{self._specimennum}'):
             if elt.endswith('.tif') and '_geo.tif' not in elt:
                 fname = os.path.basename(elt)
                 secnum = fname.split('_')[-1][:-4]
@@ -40,33 +54,55 @@ class DharaniHelper:
         return secnumbers
 
     def get_section_urls(self, secnum:int):
+        """
+        Returns image and annotation urls for this section
+        Args:
+            secnum: section number
+        Returns:
+            image url, annotation url
+            image url: url to access the section image
+            annotation url: url to access the annotation json
+
+        """
+
         baseurl_s3 = 's3://dharani-fetal-brain-atlas'
         baseurl = 'https://dharani-fetal-brain-atlas.s3.us-west-2.amazonaws.com'
 
-        annoturl = f'{baseurl}/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.json'
-        if self.downsample > 2:
+        annoturl = f'{baseurl}/data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.json'
+        if self._downsample > 2:
             imgurl = self._get_base64_imgurl(secnum)
-        elif self.downsample==0:
+        elif self._downsample==0:
             imgurl =  annoturl.replace('.json','.tif')
         else: 
             raise NotImplementedError # downsample = 1 or 2
         
         return imgurl, annoturl
     
+
     def get_zoomable_img_url(self, secnum:int):
+        """
+        Returns zoomable image url for this section
+        """
+
         baseurl_s3 = f's3://dharani-fetal-brain-atlas'
         baseurl = 'https://dharani-fetal-brain-atlas.s3.us-west-2.amazonaws.com'
 
-        tifurl = f'{baseurl}/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'
+        tifurl = f'{baseurl}/data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.tif'
         return tifurl
     
     def get_imagedims(self, secnum:int):
-        s3url = f's3://dharani-fetal-brain-atlas/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'
+        """
+        returns original image dimensions (does not heed the constructor's downsample argument) 
+        for this section.
+        """
+
+        s3url = f's3://dharani-fetal-brain-atlas/data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.tif'
         accessor = PyrTifAccessor(s3url)
         info = accessor.get_info(0,0,0)
         return info['imagewidth'], info['imageheight']
     
-    def _get_base64_imgurl(self,secnum):
+    def _get_base64_imgurl(self,secnum:int):
+
         secimg_np = self.get_sectionimage(secnum)
         pil_img = Image.fromarray(secimg_np)
         buffer = BytesIO()
@@ -74,17 +110,22 @@ class DharaniHelper:
         base64_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
         return f'data:image/png;base64,{base64_str}'
-    
+
     def get_sectionimage(self, secnum:int):
-        s3url = f's3://dharani-fetal-brain-atlas/data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.tif'
+        """
+        returns section image as numpy array.
+        For this to work, constructor's downsample argument should be >2.
+        """
+        
+        s3url = f's3://dharani-fetal-brain-atlas/data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.tif'
         accessor = PyrTifAccessor(s3url)
         maxlevel = len(accessor.infodict['series'][0]['levels'])-1
-        assert self.downsample > 2, "Section image access for mpp<8 not supported"
-        lev = self.downsample
+        assert self._downsample > 2, "Section image access for mpp<8 not supported"
+        lev = self._downsample
         postresizefactor = 1
-        if self.downsample > maxlevel:
+        if self._downsample > maxlevel:
             lev = maxlevel
-            postresizefactor = 2**(self.downsample - lev)
+            postresizefactor = 2**(self._downsample - lev)
         
         page = accessor.get_page(0,lev,0)
 
@@ -97,25 +138,34 @@ class DharaniHelper:
             out = page
         return out
 
-    def get_annotation(self, secnum):
+    def get_annotation(self, secnum:int):
+        """
+        returns annotation as dict where
+        keys are ontoid, values are shapely.Geometry
+        """
         
-        jsonpath = f'data2d/specimen_{self.specimennum}/Specimen_{self.specimennum}_{secnum}.json'    
-        with self.s3.open('dharani-fetal-brain-atlas/'+jsonpath) as fp:
+        jsonpath = f'data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.json'
+        if not s3.exists('dharani-fetal-brain-atlas/'+jsonpath):
+            return {}
+
+        with s3.open('dharani-fetal-brain-atlas/'+jsonpath) as fp:
             annot = json.load(fp)
             # {type: featurecollection, features: [features] }
 
         # aggregate by ontoid
         shapes = defaultdict(list)
-        mpp = 2**self.downsample
+        mpp = 2**self._downsample
         for feat in annot['features']:
-            ontoid = feat['properties']['data']['id']
+            ontoid = int(feat['properties']['data']['id'])
             coordinates = np.abs(np.array(feat['geometry']['coordinates'])).squeeze()/mpp
 
             updatedgeom = {
                 'type':feat['geometry']['type'],
                 'coordinates': [coordinates.tolist()]
-                           }
-        
+            }
+            if feat['geometry']['type']!='Polygon':
+                print(f"sec {secnum} - skipped {ontoid} (geomtype {feat['geometry']['type']}!='Polygon')")
+                continue
             shape = make_shape(updatedgeom).buffer(0)
             shapes[ontoid].append(shape)
 
@@ -133,8 +183,26 @@ class DharaniHelper:
             outdict[ontoid]=united
         return outdict
 
-    def get_viewer_url(self, secnum):
+    def get_viewer_url(self, secnum:int):
+        """ 
+        returns the web url which shows the Dharani section
+        """
         baseurl = 'https://brainportal.humanbrain.in'
-        url = f'{baseurl}/code/2dviewer/annotation/public?data={self.specimennum-1}&region=-1&section={secnum}'
+        url = f'{baseurl}/code/2dviewer/annotation/public?data={self._specimennum-1}&region=-1&section={secnum}'
         return url
+    
+    def get_annotations(self):
+        """
+        returns all annotations as dict where
+        keys are ontoids, values are dict of secno:shapely.Geometry
+        """
+
+        secnos = self.get_section_numbers()
+        outdict = defaultdict(dict)
+        for secnum in secnos:
+            annot_seci = self.get_annotation(secnum)
+            for ontoid,shp in annot_seci.items():
+                outdict[ontoid][secnum]=shp
+
+        return outdict
     
