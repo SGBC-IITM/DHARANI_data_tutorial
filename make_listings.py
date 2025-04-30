@@ -16,17 +16,26 @@ def main(helper):
         atlasfmt = 'svg'
         imagefmt = 'jpg'
 
+    resolution = '1'
     with open(f'directory-listings/{specimenname}.csv','wt') as listing:
-        listing.write('section_number, image_url, image_format, image_width, image_height, atlas_url, atlas_format, viewer_url\n')
+        listing.write('section_number, image_url, image_format, image_resolution_mpp, image_width, image_height, atlas_url, atlas_format, viewer_url\n')
         for secno in tqdm(sorted(secnumbers)):
             
             imgurl,annoturl = helper.get_section_urls(secno)
             imgwidth,imgheight = helper.get_imagedims(secno)
             
+            viewerurl = helper.get_viewer_url(secno)
+
+            thisatlasfmt = atlasfmt
+            thisresolution = resolution
+
             if annoturl is None:
                 annoturl = ''
-            viewerurl = helper.get_viewer_url(secno)
-            listing.write(','.join([str(secno), imgurl, imagefmt, str(imgwidth), str(imgheight), annoturl, atlasfmt, viewerurl]))
+                thisatlasfmt = ''
+                viewerurl += '&type=hd'
+                thisresolution = '4'
+            
+            listing.write(','.join([str(secno), imgurl, imagefmt, thisresolution, str(imgwidth), str(imgheight), annoturl, thisatlasfmt, viewerurl]))
             listing.write('\n')
 
 

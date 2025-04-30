@@ -51,7 +51,43 @@ class DharaniHelper:
                 fname = os.path.basename(elt)
                 secnum = fname.split('_')[-1][:-4]
                 secnumbers.append(int(secnum))
-        return secnumbers
+        return list(sorted(secnumbers))
+
+    def get_s3_key(self):
+        return f'dharani-fetal-brain-atlas/data2d/specimen_{self._specimennum}'
+
+    def get_filenames(self):
+        contents_1=s3.ls(self.get_s3_key())
+        tiflist = []
+        jsonlist = []
+        for elt in contents_1:
+            if '_geo.tif' in elt:
+                continue
+            bn = os.path.basename(elt)
+            if len(bn)==0:
+                continue
+            parts = bn.split('.')
+            if parts[1]=='json':
+                jsonlist.append(parts[0])
+            elif parts[1]=='tif':
+                tiflist.append(parts[0])
+
+        outdict = {}
+        for tifname in tiflist:
+            secnum = int(tifname.split('_')[-1])
+            outdict[secnum]={'image':tifname+'.tif'}
+            if tifname in jsonlist:
+                outdict[secnum]['annotation']=tifname+'.json'
+
+        imagemissinglist=[]
+        for jsonname in jsonlist:
+            if jsonname not in tiflist:
+                imagemissinglist.append(jsonname)
+
+        if len(imagemissinglist)>0:
+            raise Exception(f'Image missing for {imagemissinglist}')
+            
+        return outdict
 
     def get_section_urls(self, secnum:int):
         """
@@ -68,7 +104,10 @@ class DharaniHelper:
         baseurl_s3 = 's3://dharani-fetal-brain-atlas'
         baseurl = 'https://dharani-fetal-brain-atlas.s3.us-west-2.amazonaws.com'
 
-        annoturl = f'{baseurl}/data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.json'
+        annoturl = f'data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.json'
+        annoturl_http = f'{baseurl}/{annoturl}'
+        if not s3.exists(f'{baseurl_s3}/{annoturl}'):
+            annoturl_http = None
         if self._downsample > 2:
             imgurl = self._get_base64_imgurl(secnum)
         elif self._downsample==0:
@@ -76,7 +115,7 @@ class DharaniHelper:
         else: 
             raise NotImplementedError # downsample = 1 or 2
         
-        return imgurl, annoturl
+        return imgurl, annoturl_http
     
 
     def get_zoomable_img_url(self, secnum:int):
@@ -159,14 +198,22 @@ class DharaniHelper:
             ontoid = int(feat['properties']['data']['id'])
             coordinates = np.abs(np.array(feat['geometry']['coordinates'])).squeeze()/mpp
 
+            if feat['geometry']['type']!='Polygon':
+                print(f"sec {secnum} - skipped {ontoid} : geomtype {feat['geometry']['type']}")
+                continue
+
+            if len(coordinates)<4:
+                print(f"sec {secnum} - skipped {ontoid} : too few coordinates {coordinates.shape}")
+                continue
+
             updatedgeom = {
                 'type':feat['geometry']['type'],
                 'coordinates': [coordinates.tolist()]
             }
-            if feat['geometry']['type']!='Polygon':
-                print(f"sec {secnum} - skipped {ontoid} (geomtype {feat['geometry']['type']}!='Polygon')")
-                continue
+            
+            
             shape = make_shape(updatedgeom).buffer(0)
+            
             shapes[ontoid].append(shape)
 
         # revisit and make multi
@@ -200,9 +247,11 @@ class DharaniHelper:
         secnos = self.get_section_numbers()
         outdict = defaultdict(dict)
         for secnum in secnos:
-            annot_seci = self.get_annotation(secnum)
-            for ontoid,shp in annot_seci.items():
-                outdict[ontoid][secnum]=shp
-
+            try:
+                annot_seci = self.get_annotation(secnum)
+                for ontoid,shp in annot_seci.items():
+                    outdict[ontoid][secnum]=shp
+            except:
+                print(f'ERR: sec {secnum}')
         return outdict
     
