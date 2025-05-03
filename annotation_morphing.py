@@ -142,11 +142,17 @@ def make_mesh(polydict:Dict[int,shapely.Geometry], downsample):
     scale = 1/(2**downsample)
     for secnum, poly in polydict.items():
         z = secnum*60*scale
-        pts, faces = _constrained_triangulate(poly)
-        pts_3d = np.hstack([pts, np.full((pts.shape[0], 1), z)])  # Convert to 3D
-        mesh_vertices.append(pts_3d)
-        mesh_faces.append(faces + offset)  # Adjust indices
-        offset += len(pts_3d)
+        poly_arr = []
+        if poly.geom_type=='Polygon':
+            poly_arr.append(poly)
+        elif poly.geom_type=='MultiPolygon':
+            poly_arr = poly.geoms
+        for poly_i in poly_arr:
+            pts, faces = _constrained_triangulate(poly_i)
+            pts_3d = np.hstack([pts, np.full((pts.shape[0], 1), z)])  # Convert to 3D
+            mesh_vertices.append(pts_3d)
+            mesh_faces.append(faces + offset)  # Adjust indices
+            offset += len(pts_3d)
 
     mesh_vertices = np.vstack(mesh_vertices)
     mesh_faces = np.vstack(mesh_faces)

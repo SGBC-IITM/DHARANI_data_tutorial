@@ -11,6 +11,8 @@ import base64
 from collections import defaultdict
 from shapely.geometry import shape as make_shape
 
+from joblib import Parallel, delayed
+
 s3 = s3fs.S3FileSystem(anon=True)
 
 class DharaniHelper:
@@ -238,7 +240,7 @@ class DharaniHelper:
         url = f'{baseurl}/code/2dviewer/annotation/public?data={self._specimennum-1}&region=-1&section={secnum}'
         return url
     
-    def get_annotations(self):
+    def get_annotations(self, concurrent=False):
         """
         returns all annotations as dict where
         keys are ontoids, values are dict of secno:shapely.Geometry
@@ -246,12 +248,28 @@ class DharaniHelper:
 
         secnos = self.get_section_numbers()
         outdict = defaultdict(dict)
-        for secnum in secnos:
+
+        def workerfunc(secnum):
             try:
                 annot_seci = self.get_annotation(secnum)
-                for ontoid,shp in annot_seci.items():
-                    outdict[ontoid][secnum]=shp
+                return secnum, annot_seci
             except:
                 print(f'ERR: sec {secnum}')
+                return secnum, None
+
+        if not concurrent:
+            for secnum in secnos:
+                secnum, annot_seci = workerfunc(secnum)
+                for ontoid,shp in annot_seci.items():
+                    outdict[ontoid][secnum]=shp
+                
+        else:
+            results = Parallel(n_jobs=4)(
+                delayed(workerfunc)(secnum) for secnum in secnos
+            )
+            for secnum, annot_seci in results:
+                for ontoid,shp in annot_seci.items():
+                    outdict[ontoid][secnum]=shp
+                    
         return outdict
     

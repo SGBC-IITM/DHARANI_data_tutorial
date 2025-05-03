@@ -6,8 +6,47 @@ import requests
 from rapidfuzz.process import extract as fuzzy_similarity
 from rapidfuzz import fuzz
 
+from typing import List, Dict
+
+import joblib
+
+cachedir = '.cachedir'
+memory = joblib.Memory(cachedir, verbose=0)
+
+@memory.cache
+def load_ontology_data(ontoname: str) -> List[Dict]:
+    """Loads ontology data from source, cached using joblib."""
+    print(f"Loading ontology data for '{ontoname}' from source...") # For checking cache hits
+    if ontoname == 'dharani':
+        s3 = s3fs.S3FileSystem(anon=True)
+        try:
+            with s3.open('dharani-fetal-brain-atlas/ontology/ontology.json') as fp:
+                treenom = json.load(fp)['msg'][0]['children']
+        except Exception as e:
+            print(f"Error loading Dharani ontology from S3: {e}")
+            raise # Re-raise the exception after logging
+
+    elif ontoname == 'allen_devhuman':
+        try:
+            response = requests.get('http://api.brain-map.org/api/v2/structure_graph_download/16.json', timeout=30) # Added timeout
+            response.raise_for_status() # Raise an exception for bad status codes
+            allenonto = response.json()
+            treenom = allenonto['msg'][0]['children'][0]['children']
+        except requests.exceptions.RequestException as e:
+            print(f"Error loading Allen ontology from URL: {e}")
+            raise # Re-raise the exception after logging
+        except json.JSONDecodeError as e:
+            print(f"Error decoding Allen ontology JSON: {e}")
+            raise # Re-raise the exception after logging
+    else:
+        raise ValueError(f"Unknown ontoname: {ontoname}")
+    print(f"Finished loading ontology data for '{ontoname}'.")
+    return treenom
+
 
 NodeRecord = namedtuple('NodeRecord','acronym,name,color_hex_triplet,level,parentid,numchildren')
+
+SearchResult = namedtuple('SearchResult','matched_name,score,ontoid')
 
 class TreeHelper:
     """
@@ -17,15 +56,8 @@ class TreeHelper:
     def __init__(self, ontoname='dharani'):
         """ ontoname: ['dharani', 'allen_devhuman'] """
 
-        if ontoname == 'dharani':
-            s3 = s3fs.S3FileSystem(anon=True)
-            with s3.open('dharani-fetal-brain-atlas/ontology/ontology.json') as fp:
-                self.treenom = json.load(fp)['msg'][0]['children']
-
-        elif ontoname=='allen_devhuman':
-            allenonto = requests.get('http://api.brain-map.org/api/v2/structure_graph_download/16.json').json()
-            self.treenom = allenonto['msg'][0]['children'][0]['children']
-
+        self.ontoname = ontoname
+        self.treenom = load_ontology_data(ontoname)
         # self.flatnom = json.load(open('flatnom_189.json'))['msg'][0]['children']
         
         self.groups = {
@@ -110,7 +142,8 @@ class TreeHelper:
             if elt['acronym'] in grpparents:
                 self.subtrees[grpname].append(elt)
                 return grpname
-        return None            
+        return None           
+     
     # def get_group_by_acronym(self, rgnname):
     #     for grpname in self.subtrees:
     #         for subtr in self.subtrees[grpname]:
@@ -143,7 +176,7 @@ class TreeHelper:
     #                 return True
     #     return False
               
-    def get_ancestor_ids(self, ontoid:int):
+    def get_ancestor_ids(self, ontoid:int)->List[int]:
         """get a list of ancestor ids, general to specialized"""
         idlist = []
         if ontoid>0:
@@ -154,7 +187,7 @@ class TreeHelper:
 
         return list(reversed(idlist))
     
-    def get_successor_ids(self, ontoid:int):
+    def get_successor_ids(self, ontoid:int)->List[int]:
         """get a list of successor ids (child, child of child, etc), general to specialized"""
         
         nd = self._get_node_by_ontoid(ontoid)
@@ -188,7 +221,7 @@ class TreeHelper:
         
         for elt in self.treenom:
             # print(elt['id'])
-            if elt['id'] in ancestorids:
+            if int(elt['id']) in ancestorids:
                 ancnode = elt
                 break
 
@@ -208,13 +241,13 @@ class TreeHelper:
 
         return node
 
-    def get_children_ids(self, ontoid:int):
+    def get_children_ids(self, ontoid:int)->List[int]:
         nd = self._get_node_by_ontoid(ontoid)
         if 'children' in nd:
             return [int(ch['id']) for ch in nd['children']]
         return []
 
-    def get_sibling_ids(self,ontoid:int):
+    def get_sibling_ids(self,ontoid:int)->List[int]:
         
         parentid = self.onto_lookup[ontoid].parentid
         parentnode = self._get_node_by_ontoid(parentid)
@@ -224,7 +257,7 @@ class TreeHelper:
         return siblingids
     
 
-    def get_group_by_ontoid(self, ontoid:int):
+    def get_group_by_ontoid(self, ontoid:int)->str:
 
         ancestorids = self.get_ancestor_ids(ontoid)
         for grpname in self.subtrees:
@@ -240,7 +273,7 @@ class TreeHelper:
                 return id
         return None
     
-    def get_group_by_acronym(self, acro:str):
+    def get_group_by_acronym(self, acro:str)->str:
         ontoid = self._get_id_by_acronym(acro)
         if ontoid is not None:
             return self.get_group_by_ontoid(ontoid)
@@ -270,7 +303,7 @@ class TreeHelper:
                     self._show_children(child,level+1)
 
 
-    def get_ids_by_level(self,level:int):
+    def get_ids_by_level(self,level:int)->List[int]:
         idlist = []
         for id,rec in self.onto_lookup.items():
             if rec.level==level:
@@ -278,7 +311,8 @@ class TreeHelper:
 
         return idlist
 
-    def get_ids_of_cortical_areas(self):
+    def get_ids_of_cortical_areas(self)->List[int]:
+        # FIXME: works for self.ontoname='dharani' only 
         idlist = defaultdict(list)
         areanamesuffixes = ['-FCTx', '-ORB', '-PAR', '-OCC', '-TEMP', '-INS', '-CING', '-ENT']
 
@@ -289,8 +323,8 @@ class TreeHelper:
         
         return idlist
     
-    def get_ids_of_layered_areas(self):
-        # FIXME: this is dharani-specific - can be generalized to Allen ontology
+    def get_ids_of_layered_areas(self)->List[int]:
+        # FIXME: works for self.ontoname=='dharani' only
         idlist = defaultdict(list)
         zoneprefixes = ['SGL-','MZ-','CP-','SP-','IZ-','SVZ-','VZ-']
 
@@ -312,7 +346,7 @@ class TreeHelper:
         lev = self.onto_lookup[ontoid].level
         self._show_children(nd,lev)
 
-    def search(self, searchstr, partial=False, num_results=5):
+    def search(self, searchstr, partial=False, num_results=5)->List[SearchResult]:
         # set num_results to -1 for no limit
         query = searchstr.lower() # .replace(',', ' in')
         scorer = fuzz.ratio
@@ -326,19 +360,17 @@ class TreeHelper:
                     ret = [elt] # suppress other elts
                     break
         if len(ret)==0 and not partial:
-            ret = fuzzy_similarity(query, self.search_dict, scorer=fuzz.token_ratio, score_cutoff=90, limit=5)
+            ret = fuzzy_similarity(query, self.search_dict, scorer=fuzz.token_ratio, score_cutoff=90, limit=num_results)
         
         if len(ret)==0:
-            ret = fuzzy_similarity(query, self.search_dict, scorer=fuzz.partial_token_sort_ratio, score_cutoff=90, limit=5)
+            ret = fuzzy_similarity(query, self.search_dict, scorer=fuzz.partial_token_sort_ratio, score_cutoff=90, limit=num_results)
 
-        if ' of ' not in searchstr:
+        
+        out = []
+        for elt in ret:                
+            if ' of ' not in searchstr and ' of ' not in elt[0] and len(out) < num_results :
+                out.append(elt)
+        
 
-            out = []
-            for elt in ret:                
-                if ' of ' not in elt[0]:
-                    out.append(elt)
-            
-            ret = out
-
-        return ret
+        return [SearchResult(*elt) for elt in ret]
     
