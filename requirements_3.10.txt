@@ -13,3 +13,6 @@ rapidfuzz
 alphashape
 triangle
 joblib
+pyqt5
+plotly
+scikit-image==0.21.0
