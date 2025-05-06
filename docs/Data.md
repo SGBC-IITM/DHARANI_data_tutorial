@@ -6,10 +6,9 @@ Dharani/docs/Data
 
 # Dharani data organization
 
-The dataset has 5 specimens 
+The dataset has 5 specimens, whose brains were extracted, sliced into thin sections, and the sections are digitized into section images. We refer to the digitized section image as `section`.
 
-
-| Specimen ID | Age (pcw) |  Sectioning plane | Number of Nissl images | Number of annotated images |
+| Specimen ID | Age (pcw) |  Sectioning plane | Number of Nissl sections | Number of annotated sections |
 | :--- | :---: | :---: |  :---: |  :---: |
 | 1    |   14    |     sagittal | 395 | 63 |
 | 2    |   17    |     sagittal | 536 | 90 |
@@ -17,9 +16,15 @@ The dataset has 5 specimens
 | 4    |   22    |      coronal | 689 | 124 |
 | 5    |   24    |    ~sagittal | 657 | 120 |
 
-Each specimen has a list of sections (numbered Right-to-Left for sagittal data, Anterior-to-Posterior for coronal data). The section thickness is 20 micron (+1 increment in section number represents a 20 micron advancement of position).
 
-The sections are stained in interleaved manner, and in AWS Open Data, the *Nissl series* of these brains are provided, along with the accompanying annotations.
+Each specimen yielded a list of sections (numbered Right-to-Left for sagittal data, Anterior-to-Posterior for coronal data). The section thickness is 20 micron (+1 increment in `section number` represents a 20 micron advancement of position).
+
+The sections are stained in interleaved manner, and in AWS Open Data, the *Nissl series* of these brains are provided, along with the accompanying annotations. The Dharani platform viewer shows the adjacent H&E sections also.
+Here is a quick view link of Specimen_2:
+
+https://brainportal.humanbrain.in/code/2dviewer/annotation/public?type=hd&data=1&seriesType=NISSL
+
+The two tabs 'Nissl' and 'Hematoxylin and Eosin' show the two series thumbnails, with section numbers inset in the thubmnails.
 
 ## Image
 The images in Dharani AWS Open Data are provided in **pyramidal tif** format. The details of reading the tif, extracting the metadata and image data (levels, pages) are handled by `image_access.py:PyrTifAccessor`.
@@ -27,8 +32,16 @@ A high-level helper class `dharani_functions.py:DharaniHelper` makes use of PyrT
 
 The images which have annotation are provided in 1 micron per pixel (1 **mpp**) resolution, and the un-annotated images are provided at 4 mpp. The pyramid tiles are jpeg compressed with quality factor of 100.
 
+Please see [Image details] for more about how to handle images programmatically.
+
+[Image details]:Image.md
+
 ## Annotation
 The annotation is provided as geojson files. These are polygons for each drawn region of the corresponding section image. The details of loading and working with annotations are handled by `dharani_functions.py:DharaniHelper.get_annotation`.
+
+Please see [Annotation details] for more about how to handle annotations programmatically.
+
+[Annotation details]:annotation.md
 
 ## Listings
 The DharaniHelper is used by `make_listings.py`, a CLI script, that takes a specimen ID, and dataset specifier string 'dharani', to prepare a csv file that tabulates the details of each image, and its corresponding annotation. The csv gives the http path of the images, which are useful for direct downloads if required. The csv also gives viewer urls, which lead directly to the online viewer page of each section.
@@ -52,4 +65,8 @@ The data is of only one hemisphere.
 | 3    |   21 pcw   | Cerebrum | 169 | 156 |
 | 287730656    |   21 pcw   |     brainstem | 66 | 41 |
 
-The `AllenHelper` 
+The `AllenHelper` has functions identical in signature to 'DharaniHelper`, such as `get_section_numbers`, `get_imagedims`, `get_section_urls`, `get_sectionimage`,`get_annotation`.
+
+Please see [Helpers details] for more about the helper classes `DharaniHelper` and `AllenHelper`.
+
+[Helpers details]: helpers.md

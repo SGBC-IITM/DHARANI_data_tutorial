@@ -17,8 +17,8 @@ The BrainSpan Reference Atlases are full-color, high-resolution, Web-based digit
 ## Links
   - https://community.brain-map.org/t/developing-human-reference-atlases/2898
   - https://www.brainspan.org/static/atlas
- - https://onlinelibrary.wiley.com/doi/10.1002/cne.25243
-
+  - https://onlinelibrary.wiley.com/doi/10.1002/cne.25243
+  - https://www.youtube.com/watch?v=-LiKX8BvBBI
 <!--https://alleninstitute.org/news/allen-institute-for-brain-science-launches-three-new-landmark-atlas-projects-focusing-on-the-human-brain-developing-brain-and-spinal-cord/-->
 
 

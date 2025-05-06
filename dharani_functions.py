@@ -113,7 +113,7 @@ class DharaniHelper:
         if self._downsample > 2:
             imgurl = self._get_base64_imgurl(secnum)
         elif self._downsample==0:
-            imgurl =  annoturl.replace('.json','.tif')
+            imgurl =  annoturl_http.replace('.json','.tif')
         else: 
             raise NotImplementedError # downsample = 1 or 2
         
@@ -128,8 +128,9 @@ class DharaniHelper:
         baseurl_s3 = f's3://dharani-fetal-brain-atlas'
         baseurl = 'https://dharani-fetal-brain-atlas.s3.us-west-2.amazonaws.com'
 
-        tifurl = f'{baseurl}/data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.tif'
-        return tifurl
+        httpurl = f'{baseurl}/data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.tif'
+        s3url = f'{baseurl_s3}/data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.tif'
+        return httpurl, s3url
     
     def get_imagedims(self, secnum:int):
         """

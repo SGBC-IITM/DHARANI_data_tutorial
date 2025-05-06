@@ -63,8 +63,8 @@ def get_properties(shape:shapely.Geometry):
     
     return {
         'pt': shape.representative_point().coords[0],
-        'area': shape.area,
-        'perimeter': shape.length,
+        'area': shape.area, # umsq
+        'perimeter': shape.length, # um
         'numcomp': num_comp,
         'bbox': shape.bounds,
         'aspectratio': long_length/short_length,
