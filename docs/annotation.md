@@ -29,3 +29,7 @@ The function `get_annotation` returns a python `dict` where keys are `ontology_i
 ## Allen Annotations
 In the case of the Allen developing human brain atlas dataset, each annotation is stored in svg format, using strokes. The `AllenHelper.get_annotation` function behaves identically to the Dharani counterpart, interpreting the strokes in svg, and decoding it into shapely Geometry objects.
 
+Please see [Dharani sample] and [Allen sample] for detailed notebooks showing how to work with the shapely Geometries
+
+[Dharani sample]: ../notebooks/dharani_sample.ipynb
+[Allen sample]: ../notebooks/allen_developinghuman.ipynb

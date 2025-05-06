@@ -65,8 +65,9 @@ The data is of only one hemisphere.
 | 3    |   21 pcw   | Cerebrum | 169 | 156 |
 | 287730656    |   21 pcw   |     brainstem | 66 | 41 |
 
-The `AllenHelper` has functions identical in signature to 'DharaniHelper`, such as `get_section_numbers`, `get_imagedims`, `get_section_urls`, `get_sectionimage`,`get_annotation`.
+The `AllenHelper` has functions identical in signature to `DharaniHelper`, such as `get_section_numbers`, `get_imagedims`, `get_section_urls`, `get_sectionimage`,`get_annotation`.
 
-Please see [Helpers details] for more about the helper classes `DharaniHelper` and `AllenHelper`.
+Please see [Image] and [Annotation] for more about the helper classes `DharaniHelper` and `AllenHelper`.
 
-[Helpers details]: helpers.md
+[Image]: Image.md
+[Annotation]: annotation.md
