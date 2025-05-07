@@ -17,8 +17,8 @@ This function does not entertain `downsample` values less than 3.
 
 For accessing high-resolution data (which can be very large in `dim1` and `dim2`), we recommend the use the function `get_zoomable_img_url` - which produces a download url. The downloaded image can be viewed in any Digital Pathology viewer such as [Aperio ImageScope] or [Huron viewer].
 
-For accessing high-resolution tiles without downloading the image, we provide a sample notebook [test_image.ipynb] 
+For accessing high-resolution tiles without downloading the image, we provide a sample notebook [image_handling_dharani.ipynb] 
 
 [Aperio ImageScope]: https://www.leicabiosystems.com/en-in/digital-pathology/manage/aperio-imagescope/
 [Huron viewer]:https://www.hurondigitalpathology.com/resource/download-huronviewer/
-[test_image.ipynb]: ../notebooks/test_image.ipynb
+[image_handling_dharani.ipynb]: ../notebooks/image_handling_dharani.ipynb

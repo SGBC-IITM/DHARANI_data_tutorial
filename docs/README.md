@@ -21,16 +21,18 @@ The github repository [Dharani data tutorials] contains the file listings, and c
 
 # Organization of docs
 
-- [Top]
+- Repository [Info]
 - [Why]
 - [Toolbox]
 - [Data]
+- [Getting started]
 - Other projects :: [BigBrain]
 - Other projects :: [Allen Brainspan]
 
-[Top]:README.md
+[Info]:README.md
 [Why]:Why.md
 [BigBrain]:Other_Projects_BigBrain.md
 [Allen Brainspan]: Other_Projects_Allen_brainspan.md
 [Toolbox]: Toolbox.md
 [Data]: Data.md
+[Getting started]: Getting_started.md

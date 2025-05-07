@@ -57,10 +57,10 @@ class TreeHelper:
         """ ontoname: ['dharani', 'allen_devhuman'] """
 
         self.ontoname = ontoname
-        self.treenom = load_ontology_data(ontoname)
+        self._treenom = load_ontology_data(ontoname)
         # self.flatnom = json.load(open('flatnom_189.json'))['msg'][0]['children']
         
-        self.groups = {
+        self._groups = {
             'HPF':['HPF','HIP'], # hippocampal formation
             'AMY_BN':['AMY','BN','CN'], # amygdala + basal nucleus, cerebral nuclei
             'Mig':['Lms','Rms','GE','FTS'], # migratory areas, transient structures of forebrain
@@ -76,13 +76,13 @@ class TreeHelper:
             'Ctx':['Ctx','FGM'] # fallback cortex 
         }
 
-        self.subtrees = {k:[] for k in self.groups}
+        self._subtrees = {k:[] for k in self._groups}
 
         self.onto_lookup:dict[int,NodeRecord] = {} # id:(acronym,name,level,parentid,color_hex_triplet)
 
-        self.ontoids_by_group:dict[str,list] = {k:[] for k in self.groups}
+        self.ontoids_by_group:dict[str,list] = {k:[] for k in self._groups}
 
-        for elt in self.treenom:
+        for elt in self._treenom:
             self._find_subtrees(elt)
 
             if 'text' not in elt:
@@ -100,7 +100,7 @@ class TreeHelper:
         #     if elt['id'] not in self.onto_lookup:
         #         self.onto_lookup[elt['id']]=(elt['acronym'],elt['name'],-1,-1)
 
-        self.search_dict = {k:v.name.lower() for k,v in self.onto_lookup.items()}
+        self._search_dict = {k:v.name.lower() for k,v in self.onto_lookup.items()}
     
     def __len__(self):
         return len(self.onto_lookup)
@@ -138,15 +138,15 @@ class TreeHelper:
                 self._find_subtrees(child, foundgrp or grprootname)
 
     def _check_node(self,elt):
-        for grpname, grpparents in self.groups.items():
+        for grpname, grpparents in self._groups.items():
             if elt['acronym'] in grpparents:
-                self.subtrees[grpname].append(elt)
+                self._subtrees[grpname].append(elt)
                 return grpname
         return None           
      
     # def get_group_by_acronym(self, rgnname):
-    #     for grpname in self.subtrees:
-    #         for subtr in self.subtrees[grpname]:
+    #     for grpname in self._subtrees:
+    #         for subtr in self._subtrees[grpname]:
     #             if self._find_node_by_acronym(subtr,rgnname):
     #                 return grpname
     #     return None
@@ -161,8 +161,8 @@ class TreeHelper:
     #     return False
 
     # def get_group_by_ontoid(self, ontoid):
-    #     for grpname in self.subtrees:
-    #         for subtr in self.subtrees[grpname]:
+    #     for grpname in self._subtrees:
+    #         for subtr in self._subtrees[grpname]:
     #             if self._find_node_by_id(subtr, ontoid):
     #                 return grpname
 
@@ -219,7 +219,7 @@ class TreeHelper:
         ancestorids = self.get_ancestor_ids(ontoid)
         ancnode = None
         
-        for elt in self.treenom:
+        for elt in self._treenom:
             # print(elt['id'])
             if int(elt['id']) in ancestorids:
                 ancnode = elt
@@ -260,8 +260,8 @@ class TreeHelper:
     def get_group_by_ontoid(self, ontoid:int)->str:
 
         ancestorids = self.get_ancestor_ids(ontoid)
-        for grpname in self.subtrees:
-            for subtr in self.subtrees[grpname]:
+        for grpname in self._subtrees:
+            for subtr in self._subtrees[grpname]:
                 if subtr['id'] in ancestorids or subtr['id']==ontoid:
                     return grpname
         
@@ -282,7 +282,7 @@ class TreeHelper:
     def print_tree(self):
         print('[lvl] id (acronym) name')
         print('---------------------')
-        for toplevel in self.treenom:
+        for toplevel in self._treenom:
             # print(toplevel['id'],toplevel['name'])
             self._show_children(toplevel)
         
@@ -337,7 +337,7 @@ class TreeHelper:
     def print_subtree(self, grpname:str):
         print('[lvl] id (acronym) name')
         print('---------------------')
-        for root in self.subtrees[grpname]:
+        for root in self._subtrees[grpname]:
             self._show_children(root)
 
 
@@ -352,7 +352,7 @@ class TreeHelper:
         scorer = fuzz.ratio
         if partial:
             scorer=fuzz.partial_token_sort_ratio
-        ret = fuzzy_similarity(query, self.search_dict, scorer=scorer, score_cutoff=85, limit=num_results)
+        ret = fuzzy_similarity(query, self._search_dict, scorer=scorer, score_cutoff=85, limit=num_results)
 
         if not partial:
             for elt in ret:
@@ -360,10 +360,10 @@ class TreeHelper:
                     ret = [elt] # suppress other elts
                     break
         if len(ret)==0 and not partial:
-            ret = fuzzy_similarity(query, self.search_dict, scorer=fuzz.token_ratio, score_cutoff=90, limit=num_results)
+            ret = fuzzy_similarity(query, self._search_dict, scorer=fuzz.token_ratio, score_cutoff=90, limit=num_results)
         
         if len(ret)==0:
-            ret = fuzzy_similarity(query, self.search_dict, scorer=fuzz.partial_token_sort_ratio, score_cutoff=90, limit=num_results)
+            ret = fuzzy_similarity(query, self._search_dict, scorer=fuzz.partial_token_sort_ratio, score_cutoff=90, limit=num_results)
 
         
         out = []

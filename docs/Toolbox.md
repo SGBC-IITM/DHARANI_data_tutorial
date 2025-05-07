@@ -4,14 +4,21 @@ Dharani/docs/Toolbox
 
 [Back]:README.md
 
+# Quick start
+Refer [Getting Started]
+
+[Getting Started]: Getting_started.md
+
 # Salient aspects
-Functionality is separated into different files:
-- Data access helpers (dharani_functions.py, allen_functions.py).
-- Ontology management (ontology_handling.py).
-- Annotation processing (annotation_handling.py, annotation_morphing.py).
+A simple flat organization is used for the python modules, which can be imported into the notebooks and used. Functionality is separated into the following modules:
+- *Data* access helpers (dharani_functions.py, allen_functions.py).
+- *Ontology* management (ontology_handling.py).
+- *Annotation* processing (annotation_handling.py, annotation_morphing.py).
+
+Utility modules used by the above: 
 - Low-level image file access (image_access.py).
 - Notebook-specific display functions (nb_functions.py).
-- Utility scripts (make_listings.py).
+- Command line scripts (like `make_listings.py`).
 
 A uniform access layer is implemented for two distinct datasets ('dharani' and 'allen_devhuman'). This is achieved through the `DharaniHelper` (dharani_functions.py) and `AllenHelper` (allen_functions.py) classes.
 

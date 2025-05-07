@@ -3,13 +3,18 @@ Tutorial for using DHARANI Dataset hosted on [AWS Open Data] Exchange.
 
 [AWS Open Data]: https://aws.amazon.com/marketplace/pp/prodview-br5hlh2evx73e?sr=0-1&ref_=beagle&applicationId=AWSMPContessa#resources
 
+## Quick links
 
-The jupyter [notebooks] in this repository are meant to demonstrate how the dataset can be programmatically accessed, visualized and interacted in python. 
+- Please see [Getting Started] for setup instructions 
+- Visit [Docs] for detailed documentation
+- The jupyter [notebooks] in this repository are meant to demonstrate how the dataset can be programmatically accessed, visualized and interacted in python. 
 
-To find http links to download the data directly, use the [directory-listings].
+- To find http links to download the data directly, use the [directory-listings].
 
 [directory-listings]:./directory-listings/
 [notebooks]:./notebooks
+[Getting Started]:./docs/Getting_started.md
+[Docs]:./docs/README.md
 
 ## Abstract
 

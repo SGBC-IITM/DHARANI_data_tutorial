@@ -78,9 +78,10 @@ def display_annotation(im_arr, annot:'Annotation', ontohelper:'TreeHelper', sele
                 shp,chlist = get_supershape(ontoid, annot, ontohelper)
                 superannot[ontoid]=shp
 
-            rec = ontohelper.onto_lookup[ontoid]
-            color = rec.color_hex_triplet
-            plot_shape(shp,color)
+            if shp is not None:
+                rec = ontohelper.onto_lookup[ontoid]
+                color = rec.color_hex_triplet
+                plot_shape(shp,color)
 
     return displayedids, superannot
 
@@ -101,7 +102,7 @@ def display_annotation_tree(annot:'Annotation', ontohelper:'TreeHelper', selecte
             
         ann = reachable[par][0]
         if len(ann)>0:
-            fullname, fullacro = ontohelper.get_full_name_by_ontoid(par)
+            _, fullacro, _, _ = ontohelper.get_full_name_by_ontoid(par)
             if selectedlev is not None:
                 if parrec is not None:
                     if parrec.level==selectedlev:
@@ -217,3 +218,17 @@ def show_inline_viewer(imageurl:str):
 
     display(HTML(html_code_ol % imageurl))
 
+
+# a utility function, to grid the page to match tiling
+import numpy as np
+
+def display_tiling_grid(thumbnailimg, pageinfo=None):
+    plt.imshow(thumbnailimg, extent=[0,pageinfo['imagewidth'], pageinfo['imageheight'], 0])
+    if pageinfo is not None:
+        nr,nc,_ = thumbnailimg.shape
+        xrange = np.arange(0,pageinfo['imagewidth']/nc+1,pageinfo['tilewidth']/nc)
+        yrange = np.arange(0,pageinfo['imageheight']/nr+1,pageinfo['tilelength']/nr)
+        
+        plt.xticks(xrange*nc)
+        plt.yticks(yrange*nr)
+        plt.grid(True)
