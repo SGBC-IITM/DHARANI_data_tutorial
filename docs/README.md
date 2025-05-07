@@ -29,7 +29,7 @@ The github repository [Dharani data tutorials] contains the file listings, and c
 - Other projects :: [BigBrain]
 - Other projects :: [Allen Brainspan]
 
-[Info]:README.md
+[Info]:../README.md
 [Why]:Why.md
 [BigBrain]:Other_Projects_BigBrain.md
 [Allen Brainspan]: Other_Projects_Allen_brainspan.md

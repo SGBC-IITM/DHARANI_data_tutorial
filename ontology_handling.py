@@ -76,6 +76,7 @@ class TreeHelper:
             'Ctx':['Ctx','FGM'] # fallback cortex 
         }
 
+        
         self._subtrees = {k:[] for k in self._groups}
 
         self.onto_lookup:dict[int,NodeRecord] = {} # id:(acronym,name,level,parentid,color_hex_triplet)
@@ -101,6 +102,10 @@ class TreeHelper:
         #         self.onto_lookup[elt['id']]=(elt['acronym'],elt['name'],-1,-1)
 
         self._search_dict = {k:v.name.lower() for k,v in self.onto_lookup.items()}
+    
+    @property
+    def groups(self):
+        return list(self._groups.keys())
     
     def __len__(self):
         return len(self.onto_lookup)
