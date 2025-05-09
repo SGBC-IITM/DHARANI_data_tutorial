@@ -80,10 +80,21 @@ With Annotation + Ontology:
 | Given an 'Annotation', find the drawn regions that are at the same level in the ontology | annotation_handling.py:get_level_ids |
 | Given an 'Annotation', find the non-leaf entities that have been drawn | annotation_handling.find_superids | 
 | Given an 'Annotation', find the parents in the ontology that are reachable (children present in Annotation) | annotation_handling.py:get_reachable_parents | 
+| Gathering child annotations that form a parent | TreeHelper.get_successor_ids(parentid) | | 
 | Given an 'Annotation', find the parents that are not involved (can not be reached from the children present in Annotation) | annotation_handling.py:get_nonreachable | 
+| * Integrating properties of annotated children, to aggregate the properties of a parent | | |
 ---
+.
 
+With all annotations of a specimen
 
+| * | Refer | Example Notebook |
+| :--- | :--- | :--- | 
+| * Getting all annotations of a specimen | DharaniHelper.get_annotations() | [dharani_annotation_stats.ipynb]|
+| * forming 3d mesh by integrating across sections | annotation_morphing.py:make_mesh| |
+| * Interpolating annotations at gaps (un-annotated section numbers) | annotation_morphing.py:morph_shape |  |
+| * Rendering the integration result | plotly.graph_objects.Mesh3d, trimesh.show() | [dharani_3d_sample1.ipynb] |
+---
 
 [Data.md]: ../docs/Data.md
 [Docs]:../docs/README.md
@@ -94,3 +105,5 @@ With Annotation + Ontology:
 [test_ontology.ipynb]: ../notebooks/test_ontology.ipynb
 [Dharani tree]: https://sgbc-iitm.github.io/dharani_tree.html
 [Allen Dev Human tree]: https://sgbc-iitm.github.io/allen_tree.html
+[dharani_annotation_stats.ipynb]: ../notebooks/dharani_annotation_stats.ipynb
+[dharani_3d_sample1.ipynb]: ../notebooks/dharani_3d_sample1.ipynb
