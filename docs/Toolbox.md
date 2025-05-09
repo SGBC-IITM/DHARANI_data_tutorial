@@ -4,16 +4,17 @@ Dharani/docs/Toolbox
 
 [Back]:README.md
 
-# Quick start
-Refer [Getting Started]
+Refer [Getting Started] | [howto]s.
 
 [Getting Started]: Getting_started.md
 
+[howto]: HOWTO.md
+
 # Salient aspects
-A simple flat organization is used for the python modules, which can be imported into the notebooks and used. Functionality is separated into the following modules:
-- *Data* access helpers (dharani_functions.py, allen_functions.py).
-- *Ontology* management (ontology_handling.py).
-- *Annotation* processing (annotation_handling.py, annotation_morphing.py).
+A compact, flat organization is used for the python modules, which can be imported into the notebooks and used. Functionality is separated into the following modules:
+- *Data* access helpers (dharani_functions.py, allen_functions.py) (~300 LOC each).
+- *Ontology* management (ontology_handling.py) (~400 LOC)
+- *Annotation* processing (annotation_handling.py, annotation_morphing.py) (~500 LOC)
 
 Utility modules used by the above: 
 - Low-level image file access (image_access.py).
@@ -56,3 +57,4 @@ The code effectively utilizes established scientific and data handling Python li
 - joblib (caching, parallelization), 
 - rapidfuzz (fuzzy string matching).
 
+These are recorded in the requirements txt file, for easy reproduction of the environment using `virtualenv` and `pip`.

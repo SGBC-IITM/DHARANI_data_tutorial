@@ -26,6 +26,7 @@ The github repository [Dharani data tutorials] contains the file listings, and c
 - [Toolbox]
 - [Data]
 - [Getting started]
+- [HOWTOs]
 - Other projects :: [BigBrain]
 - Other projects :: [Allen Brainspan]
 
@@ -36,3 +37,4 @@ The github repository [Dharani data tutorials] contains the file listings, and c
 [Toolbox]: Toolbox.md
 [Data]: Data.md
 [Getting started]: Getting_started.md
+[HOWTOs]: HOWTO.md
