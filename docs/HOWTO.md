@@ -1,15 +1,16 @@
-Dharani/docs/Toolbox
+Dharani/docs/HOWTO
 
 [Back] to `docs`
 
 [Back]:README.md
 
-## Quick start
-Refer [Getting Started]
 
-[Getting Started]: Getting_started.md
+ Refer [Quick Start] | [Data]
 
-## HOWTOs
+[Quick Start]: Getting_started.md
+[Data]: Data.md
+
+## HowTo
 
 1. **Data handling** 
 
@@ -25,7 +26,9 @@ Images
 | * | Refer | Example Notebook |
 | :--- | :--- | :--- | 
 | * Get a macro view of a section image  | DharaniHelper / AllenHelper |  [dharani_sample.ipynb]    | 
-| Advanced image access | PyrTifAccessor | [image_handling_dharani.ipynb]
+| Advanced image access <br> *Get viewer URL <br> * Get a thumbnail image in numpy format <br> * Get a tile at specified level and tile_index <br> * Get a region at specified level and ROI (left, top, width, height) | PyrTifAccessor, nb_functions.py:display_tiling_grid | [image_handling_dharani.ipynb] |
+| Registering adjacent images, forming a stack | valis.registration.Valis | |
+ 
 ---
 .
 
@@ -35,6 +38,7 @@ Annotations + Ontology
 | :--- | :--- | :--- | 
 |   Load the annotations of a section, and overlay it on the macro view |   DharaniHelper / AllenHelper |  [dharani_sample.ipynb]    | 
 |  * Load the ontology entities involved in a section's annotation <br> * List the drawn entities, with their immediate parent <br> * Merge sibling entities to visualize the parent  | TreeHelper, nb_functions, annotation_handling.py:get_supershape |  [dharani_sample.ipynb] |
+| * Find parent ontology entities whose children  were not marked at all in a given brain | |
 ---
 .
 
@@ -43,9 +47,10 @@ With ontology,
 | * | Refer | Example Notebook |
 | :--- | :--- | :--- | 
 |  * Explore the ontology as a tree | [Dharani tree], [Allen Dev Human Tree] | [dharani_sample.ipynb] |
-|  * Explore subtrees, cortical areas, layered areas (zones) <br>* Get special fields like definitions  | TreeHelper | [test_ontology.ipynb] |
+|  * Explore subtrees, cortical areas, layered areas (zones) <br>* Get special fields like definitions (info) | TreeHelper | [test_ontology.ipynb] |
 | * Search the ontology with fuzzy matching, partial matching | TreeHelper |  
 | * Relate between the entities in Dharani ontology and Allen Dev Human ontology by name | | [test_ontology.ipynb] | 
+| * Find divergences (non-leaf entities that are not relatable) between Dharani and Allen Dev Human ontology | | 
 ---
 
 .
@@ -61,7 +66,7 @@ With a region in isolation:
 
 | * | Refer | Example Notebook |
 | :--- | :--- | :--- | 
-| Get the basic properties <br> (representative point within the region, area, perimeter, major axis length, max width, orientation)    |  annotation_handling.py:get_properties  |       |
+| Get the basic properties <br> (representative point within the region, area, perimeter, major axis length, max width, orientation) <br> * get an adjacency (di)graph and display it, <br> * inspect graph components    |  annotation_handling.py:get_properties  |  [dharani_annotation_properties.ipynb]     |
 ---
 .
 
@@ -69,19 +74,20 @@ Relationship between regions:
 
 | * | Refer | Example Notebook |
 | :--- | :--- | :--- | 
-|  Get region adjacency (as an adjacency list) | annotation_handling.py:get_adjacency |
+|  Get region adjacency by shared boundaries (as an adjacency list) | annotation_handling.py:get_adjacency | |
+| Get planar positional adjacency (inferior, superior, left, right) | | |
 ---
 .
 
 With Annotation + Ontology:
 
-| * | Refer | Example Notebook |
+| Given an 'Annotation', ... | Refer | Example Notebook |
 | :--- | :--- | :--- | 
-| Given an 'Annotation', find the drawn regions that are at the same level in the ontology | annotation_handling.py:get_level_ids |
-| Given an 'Annotation', find the non-leaf entities that have been drawn | annotation_handling.find_superids | 
-| Given an 'Annotation', find the parents in the ontology that are reachable (children present in Annotation) | annotation_handling.py:get_reachable_parents | 
-| Gathering child annotations that form a parent | TreeHelper.get_successor_ids(parentid) | | 
-| Given an 'Annotation', find the parents that are not involved (can not be reached from the children present in Annotation) | annotation_handling.py:get_nonreachable | 
+|  find the drawn regions that are at the same level in the ontology | annotation_handling.py:get_level_ids |
+|  find the non-leaf entities that have been drawn | annotation_handling.find_superids | 
+|  find the parents in the ontology that are reachable (children present in Annotation) | annotation_handling.py:get_reachable_parents | 
+| * Gathering child annotations that form a parent | TreeHelper.get_successor_ids(parentid) | | 
+| find the parents that are not involved (can not be reached from the children present in Annotation) | annotation_handling.py:get_nonreachable | 
 | * Integrating properties of annotated children, to aggregate the properties of a parent | | |
 ---
 .
@@ -107,3 +113,4 @@ With all annotations of a specimen
 [Allen Dev Human tree]: https://sgbc-iitm.github.io/allen_tree.html
 [dharani_annotation_stats.ipynb]: ../notebooks/dharani_annotation_stats.ipynb
 [dharani_3d_sample1.ipynb]: ../notebooks/dharani_3d_sample1.ipynb
+[dharani_annotation_properties.ipynb]: ../notebooks/dharani_annotation_properties.ipynb

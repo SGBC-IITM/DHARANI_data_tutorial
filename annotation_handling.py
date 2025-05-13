@@ -48,6 +48,7 @@ def get_max_width(shape:shapely.Geometry):
     return 2*radius
 
 def get_properties(shape:shapely.Geometry):
+    
     num_comp = 1
     if shape.geom_type=='MultiPolygon':
         num_comp = len(shape.geoms)
@@ -63,16 +64,16 @@ def get_properties(shape:shapely.Geometry):
     
     return {
         'pt': shape.representative_point().coords[0],
-        'area': shape.area, # umsq
-        'perimeter': shape.length, # um
+        'area': shape.area, # in sq pixel units (need to convert to sq.micron by multiplying mpp*mpp)
+        'perimeter': shape.length, # in pixel units
         'numcomp': num_comp,
         'bbox': shape.bounds,
         'aspectratio': long_length/short_length,
         'obb': shape.minimum_rotated_rectangle,
-        'majoraxislength': long_length,
-        'minoraxislength': short_length,
-        'maxwidth': get_max_width(shape), 
-        'orientation': ori,
+        'majoraxislength': long_length, # in pixel units
+        'minoraxislength': short_length, # in pixel units
+        'maxwidth': get_max_width(shape),  # in pixel units
+        'orientation': ori,         # positive clockwise
     }
 
 

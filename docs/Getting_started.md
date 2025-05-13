@@ -29,6 +29,7 @@ Operational familiarity with a command line is required.
 [env guidance]: https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/
 
 4. `populate` the environment with packages listed in requirements_3.10.txt
+
 ```pip install -r requirements_3.10.txt```
 
 ## Regular use
@@ -52,6 +53,6 @@ Enable the ToC side bar in the jupyter notebook
 
 Menu Navigation:: View->Left Sidebar -> Show Table of Contents
 
-Refer [Docs] for details.
+Refer [HowTo] for details.
 
-[Docs]: ../docs/README.md
+[HowTo]: ../docs/HOWTO.md

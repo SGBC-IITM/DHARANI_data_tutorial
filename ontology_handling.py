@@ -220,6 +220,10 @@ class TreeHelper:
         myrec = self.onto_lookup[ontoid]
         return fullname[:-1], fullacro[:-1], myrec.name, myrec.acronym # skip trailing /
     
+    def get_info_by_ontoid(self, ontoid:int):
+        nd = self._get_node_by_ontoid(ontoid)
+        return self._get_node_data(nd)
+
     def _get_node_by_ontoid(self,ontoid:int):
         ancestorids = self.get_ancestor_ids(ontoid)
         ancnode = None
