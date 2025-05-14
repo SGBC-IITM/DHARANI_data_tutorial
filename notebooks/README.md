@@ -1,5 +1,7 @@
 Tutorial notebooks for using DHARANI dataset 
 
+Back to [Top]
+
 (c) 2025, SGBC-IITM
 
 ## List of notebooks
@@ -11,9 +13,7 @@ Tutorial notebooks for using DHARANI dataset
 | Ontology handling    |   [test_ontology.ipynb]    |      |
 ---
 
-
-[Docs] | 
-[Top]
+[Docs] | [HowTos]
 
 [Docs]:../docs/README.md
 [Top]:../README.md

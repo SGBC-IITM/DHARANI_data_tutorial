@@ -18,7 +18,7 @@ Find specimens, sections
 | * | Refer | Example Notebook |
 | :--- | :--- | :--- | 
 | Find the list of specimens    |  docs/[Data.md] |       | 
-| * Select a specimen to work with, <br> * Get the list of sections available <br> * Filter the list to find only annotated sections   |  DharaniHelper / AllenHelper |  [dharani_sample.ipynb]    | 
+| * Select a specimen to work with, <br> * Get the list of sections available <br> * Filter the list to find only annotated sections   |  DharaniHelper / AllenHelper, csv_handling.py:load_csv |  [image_handling_dharani.ipynb]    | 
 ---
 .
 
@@ -66,7 +66,7 @@ With a region in isolation:
 
 | * | Refer | Example Notebook |
 | :--- | :--- | :--- | 
-| Get the basic properties <br> (representative point within the region, area, perimeter, major axis length, max width, orientation) <br> * get an adjacency (di)graph and display it, <br> * inspect graph components    |  annotation_handling.py:get_properties  |  [dharani_annotation_properties.ipynb]     |
+| Get the basic properties <br> (representative point within the region, area, perimeter, major axis length, max width, orientation)    |  annotation_handling.py:get_properties  |  [dharani_annotation_properties.ipynb]     |
 ---
 .
 
@@ -74,7 +74,7 @@ Relationship between regions:
 
 | * | Refer | Example Notebook |
 | :--- | :--- | :--- | 
-|  Get region adjacency by shared boundaries (as an adjacency list) | annotation_handling.py:get_adjacency | |
+|  Get region adjacency by shared boundaries (as an adjacency list), make a (di)graph and display it, <br> * inspect graph components | annotation_handling.py:get_adjacency | [dharani_annotation_properties.ipynb] |
 | Get planar positional adjacency (inferior, superior, left, right) | | |
 ---
 .
@@ -83,11 +83,11 @@ With Annotation + Ontology:
 
 | Given an 'Annotation', ... | Refer | Example Notebook |
 | :--- | :--- | :--- | 
-|  find the drawn regions that are at the same level in the ontology | annotation_handling.py:get_level_ids |
-|  find the non-leaf entities that have been drawn | annotation_handling.find_superids | 
+|  find the drawn regions that are at the same level in the ontology | annotation_handling.py:get_level_ids | |
+|  find the non-leaf entities that have been drawn | annotation_handling.find_superids | |
 |  find the parents in the ontology that are reachable (children present in Annotation) | annotation_handling.py:get_reachable_parents | 
 | * Gathering child annotations that form a parent | TreeHelper.get_successor_ids(parentid) | | 
-| find the parents that are not involved (can not be reached from the children present in Annotation) | annotation_handling.py:get_nonreachable | 
+| find the parents that are not involved (can not be reached from the children present in Annotation) | annotation_handling.py:get_nonreachable | |
 | * Integrating properties of annotated children, to aggregate the properties of a parent | | |
 ---
 .
@@ -97,9 +97,10 @@ With all annotations of a specimen
 | * | Refer | Example Notebook |
 | :--- | :--- | :--- | 
 | * Getting all annotations of a specimen | DharaniHelper.get_annotations() | [dharani_annotation_stats.ipynb]|
-| * forming 3d mesh by integrating across sections | annotation_morphing.py:make_mesh| |
-| * Interpolating annotations at gaps (un-annotated section numbers) | annotation_morphing.py:morph_shape |  |
+| * Forming 3d mesh by integrating across sections | annotation_morphing.py:make_mesh | |
+| * Interpolating annotations at gaps (un-annotated section numbers) | annotation_morphing.py:morph_shape | [dharani_annotation_morph.ipynb] |
 | * Rendering the integration result | plotly.graph_objects.Mesh3d, trimesh.show() | [dharani_3d_sample1.ipynb] |
+| * Tabulating the volume of a given brain region across specimens | | |
 ---
 
 [Data.md]: ../docs/Data.md
@@ -114,3 +115,4 @@ With all annotations of a specimen
 [dharani_annotation_stats.ipynb]: ../notebooks/dharani_annotation_stats.ipynb
 [dharani_3d_sample1.ipynb]: ../notebooks/dharani_3d_sample1.ipynb
 [dharani_annotation_properties.ipynb]: ../notebooks/dharani_annotation_properties.ipynb
+[dharani_annotation_morph.ipynb]: ../notebooks/dharani_annotation_morph.ipynb

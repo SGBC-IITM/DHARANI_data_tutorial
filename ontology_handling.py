@@ -13,17 +13,21 @@ import joblib
 cachedir = '.cachedir'
 memory = joblib.Memory(cachedir, verbose=0)
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 @memory.cache
 def load_ontology_data(ontoname: str) -> List[Dict]:
     """Loads ontology data from source, cached using joblib."""
-    print(f"Loading ontology data for '{ontoname}' from source...") # For checking cache hits
+    logger.debug(f"Loading ontology data for '{ontoname}' from source...") # For checking cache hits
     if ontoname == 'dharani':
         s3 = s3fs.S3FileSystem(anon=True)
         try:
             with s3.open('dharani-fetal-brain-atlas/ontology/ontology.json') as fp:
                 treenom = json.load(fp)['msg'][0]['children']
         except Exception as e:
-            print(f"Error loading Dharani ontology from S3: {e}")
+            logger.error(f"Error loading Dharani ontology from S3: {e}")
             raise # Re-raise the exception after logging
 
     elif ontoname == 'allen_devhuman':
@@ -33,14 +37,14 @@ def load_ontology_data(ontoname: str) -> List[Dict]:
             allenonto = response.json()
             treenom = allenonto['msg'][0]['children'][0]['children']
         except requests.exceptions.RequestException as e:
-            print(f"Error loading Allen ontology from URL: {e}")
+            logger.error(f"Error loading Allen ontology from URL: {e}")
             raise # Re-raise the exception after logging
         except json.JSONDecodeError as e:
-            print(f"Error decoding Allen ontology JSON: {e}")
+            logger.error(f"Error decoding Allen ontology JSON: {e}")
             raise # Re-raise the exception after logging
     else:
         raise ValueError(f"Unknown ontoname: {ontoname}")
-    print(f"Finished loading ontology data for '{ontoname}'.")
+    logger.debug(f"Finished loading ontology data for '{ontoname}'.")
     return treenom
 
 

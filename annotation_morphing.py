@@ -11,6 +11,10 @@ import trimesh
 
 from typing import Dict
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 def is_convex_dist(shape):
     minx,miny,maxx,maxy=shape.bounds
     width = max((maxx-minx),(maxy-miny))
@@ -50,14 +54,17 @@ def boundarymask(contour, mpp):
 
     img = Image.fromarray(msk)
     draw = ImageDraw.Draw(img)
-    draw.polygon(contour, fill=None, outline=1, width=1)
+    # print(contour.shape, contour.dtype)
+    # contour_list = contour.tolist()
+    contour_list = [(int(point[0]), int(point[1])) for point in contour]
+    draw.polygon(contour_list, fill=None, outline=1, width=1)
     
     msk = np.array(img)
     
     return msk
 
 
-def morph_contour(fromcontour, tocontour, fromnum, tonum, internum, check_dist=False):
+def morph_contour(fromcontour, tocontour, fromnum, tonum, internum, mpp, check_dist=False):
     
     # frommsk = boundarymask(fromcontour)
     
@@ -73,12 +80,13 @@ def morph_contour(fromcontour, tocontour, fromnum, tonum, internum, check_dist=F
     stepnum = internum-fromnum
     
     
-    if tonum - internum < stepnum:
+    if tonum - internum < stepnum or len(tocontour)>len(fromcontour):
+        logger.debug(f'swap: fromnum {fromnum}, internum {internum} tonum {tonum}')
         stepnum = tonum - internum
-        dstmsk = boundarymask(fromcontour)
+        dstmsk = boundarymask(fromcontour, mpp)
         srcpts = tocontour
     else:
-        dstmsk = boundarymask(tocontour)
+        dstmsk = boundarymask(tocontour, mpp)
         srcpts = fromcontour
         
     distmap,distidx = scipy.ndimage.distance_transform_edt(~dstmsk,return_indices=True)
@@ -162,56 +170,60 @@ def make_mesh(polydict:Dict[int,shapely.Geometry], downsample):
     return mesh
 
 
-def morph_shape(fromshape_in, toshape_in, fromnum, tonum, internum):
+def morph_shape(fromshape_in, toshape_in, fromnum, tonum, internum, mpp):
     fromshape = get_valid_shape(fromshape_in)
     
     toshape = get_valid_shape(toshape_in)
 
-    # fromshape = fromshape_in
-    # toshape = toshape_in
-    
-    # if len(fromshape.interiors)==0 and len(toshape.interiors)==0:
-    #     extfrom=np.array(fromshape.exterior.xy).T.astype(int)
-    #     extto=np.array(toshape.exterior.xy).T.astype(int)
-        
-    #     newext, pairs, widthlist = morph_contour(extfrom, extto, fromnum, tonum, internum)
-    #     return make_polyshape([newext])
-        
-    # else:
-    
-    if len(fromshape.interiors) == 0:
-        if is_convex_dist(toshape):
-            print(internum,"case 1, no from interiors, to convex")
-            extfrom, extto = make_interior_exterior(fromshape)
-        else:
-            print(internum,"case 2, no from interiors, to not convex")
-            extfrom=np.array(fromshape.exterior.xy).T.astype(int) 
-            extto=np.array(toshape.exterior.xy).T.astype(int)
-        newext,pairs,widthlist = morph_contour(extfrom, extto, fromnum, tonum, internum)
-        return make_polyshape([newext])
-    else:
-        extfrom=np.array(fromshape.exterior.xy).T.astype(int)
-        intfrom = np.vstack([np.array(elt.xy).T.astype(int) for elt in fromshape.interiors])
+    # local utility
+    def get_int_ext(shp):
 
-        if len(toshape.interiors) == 0:
-            if is_convex_dist(fromshape):
-                print(internum,"case 3, from interiors, from convex, to no interiors")
-                extto, intto = make_interior_exterior(toshape)
-                newext,pairs,widthlist = morph_contour(extfrom, extto, fromnum, tonum, internum)
-                newint, pairs2, widthlist2 = morph_contour(intfrom, intto, fromnum, tonum, internum,True)
+        if is_convex_dist(shp):
+            extc = np.array(shp.exterior.xy).T.astype(int)
+            intc = None
+            if len(shp.interiors)>0:
+                intc = np.vstack([np.array(elt.xy).T.astype(int) for elt in shp.interiors])
+        else:
+            extc, intc = make_interior_exterior(shp)
+
+        return extc, intc
+    
+    ext_from, int_from = get_int_ext(fromshape)
+    ext_to, int_to  = get_int_ext(toshape)
+
+    # local helper to avoid repeated multi-argument calls to morph_contour
+    morph_helper = lambda fromcontour, tocontour: morph_contour(fromcontour, tocontour,fromnum, tonum, internum, mpp)
+
+    newext, _, _ = morph_helper(ext_from, ext_to)
+
+    if int_from is not None:
+        if int_to is not None:
+            newint, _, _ = morph_helper(int_from, int_to)
+            return make_polyshape([newext, newint])
+        
+        else:
+            # int_to is not available, so ...
+            if internum - fromnum <  tonum - internum:
+                # march int_from towards ext_to
+                newint, _, _ = morph_helper(int_from, ext_to)
                 return make_polyshape([newext, newint])
             else:
-                print(internum,"case 4, from interiors, from not convex, to no interiors")
-                extfrom=np.array(fromshape.exterior.xy).T.astype(int) 
-                extto=np.array(toshape.exterior.xy).T.astype(int)
-                newext,pairs,widthlist = morph_contour(extfrom, extto, fromnum, tonum, internum)
-                return make_polyshape([newext])
+                # march int_from towards ext_to here also,
+                # as morph_contour will swap since internum is closer to tonum
+                newint, _, _ = morph_helper(ext_to, int_from)
+                return make_polyshape([newext, newint])
+    else:
+        if int_to is not None:
+            if internum - fromnum  > tonum - internum:
+                # march int_to towards ext_from
+                newint, _, _ = morph_helper(int_to, ext_from)
+                return make_polyshape([newext, newint])
+            else:
+                # march int_to towards ext_from here also,
+                # as morph_contour will swap since internum is closer to fromnum
+                newint, _, _ = morph_helper(ext_from, int_to)
+                return make_polyshape([newext, newint])
         else:
-            print(internum,"case 5, from interiors, to interiors")
-            extto=np.array(toshape.exterior.xy).T.astype(int)
-            intto = np.vstack([np.array(elt.xy).T.astype(int) for elt in toshape.interiors])
-    
-    
-            newext,pairs,widthlist = morph_contour(extfrom, extto, fromnum, tonum, internum)
-            newint, pairs2, widthlist2 = morph_contour(intfrom, intto, fromnum, tonum, internum,True)
-            return make_polyshape([newext, newint])
+            # no interiors in either shape
+            return make_polyshape([newext])
+            
