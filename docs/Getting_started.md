@@ -4,7 +4,9 @@ Dharani/docs/Getting started
 
 [Back]:README.md
 
-## Try on cloud (Google Colab)
+## Try on cloud 
+
+### Google Colab
 1. `Open` a notebook in colab
 
 In your web browser, visit https://colab.research.google.com
@@ -34,6 +36,11 @@ and execute it.
 
 3. Proceed with executing the rest of the blocks in the notebook.
 
+### AWS Sagemaker Studio Lab
+
+Please register at https://studiolab.sagemaker.aws/ for a free account.
+
+More instructions coming soon.
 
 ## Local setup
 Operational familiarity with a command line is required.
