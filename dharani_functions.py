@@ -12,6 +12,9 @@ from collections import defaultdict
 from shapely.geometry import shape as make_shape
 
 from joblib import Parallel, delayed
+import logging
+
+logger = logging.getLogger(__name__)
 
 s3 = s3fs.S3FileSystem(anon=True)
 
@@ -202,11 +205,11 @@ class DharaniHelper:
             coordinates = np.abs(np.array(feat['geometry']['coordinates'])).squeeze()/mpp
 
             if feat['geometry']['type']!='Polygon':
-                print(f"sec {secnum} - skipped {ontoid} : geomtype {feat['geometry']['type']}")
+                logger.warning(f"sec {secnum} - skipped {ontoid} : geomtype {feat['geometry']['type']}")
                 continue
 
             if len(coordinates)<4:
-                print(f"sec {secnum} - skipped {ontoid} : too few coordinates {coordinates.shape}")
+                logger.warning(f"sec {secnum} - skipped {ontoid} : too few coordinates {coordinates.shape}")
                 continue
 
             updatedgeom = {
@@ -255,7 +258,7 @@ class DharaniHelper:
                 annot_seci = self.get_annotation(secnum)
                 return secnum, annot_seci
             except:
-                print(f'ERR: sec {secnum}')
+                logger.error(f'ERR: sec {secnum}')
                 return secnum, None
 
         if not concurrent:

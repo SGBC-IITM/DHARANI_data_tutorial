@@ -14,5 +14,6 @@ BigBrain holds immense significance for neuroanatomical research as it enables t
 - https://www.ebrains.eu/tools/human-brain-atlas
 - https://bigbrainproject.org/
 - https://ftp.bigbrainproject.org/bigbrain-ftp/Welcome.txt
+- https://siibra-python.readthedocs.io/en/latest/examples/01_atlases_and_parcellations/index.html
 - https://www.science.org/doi/10.1126/science.1235381
 - https://github.com/FZJ-INM1-BDA/siibra-tutorials

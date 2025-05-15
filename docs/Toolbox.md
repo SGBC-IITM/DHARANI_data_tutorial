@@ -4,11 +4,13 @@ Dharani/docs/Toolbox
 
 [Back]:README.md
 
-Refer [Getting Started] | [howto]s.
+Refer [Getting Started] | [howto]s | view/create [issues]
 
 [Getting Started]: Getting_started.md
 
 [howto]: HOWTO.md
+
+[issues]: https://github.com/SGBC-IITM/DHARANI_data_tutorial/issues/
 
 # Salient aspects
 A compact, flat organization is used for the python modules, which can be imported into the notebooks and used. Functionality is separated into the following modules:
