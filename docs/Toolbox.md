@@ -4,6 +4,8 @@ Dharani/docs/Toolbox
 
 [Back]:README.md
 
+(c) 2025, SGBC-IITM
+
 Refer [Getting Started] | [howto]s | view/create [issues]
 
 [Getting Started]: Getting_started.md

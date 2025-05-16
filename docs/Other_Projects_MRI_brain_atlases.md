@@ -17,6 +17,9 @@ Dharani/docs/Other Projects::MRI Brain atlases
 - http://crl.med.harvard.edu/research/fetal_brain_atlas/
 - https://www.nature.com/articles/s41598-017-00525-w
 
+![crl atlas]
+
+[crl atlas]:http://crl.med.harvard.edu/img/regionalboth.png
 
 ## Chinese fetal brain atlas 
 
@@ -36,4 +39,3 @@ Dharani/docs/Other Projects::MRI Brain atlases
  Baby Brain Atlases 
  - https://www.sciencedirect.com/science/article/pii/S105381191830291X
 
- 

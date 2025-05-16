@@ -4,6 +4,7 @@ Dharani/docs/HOWTO
 
 [Back]:README.md
 
+(c) 2025, SGBC-IITM
 
  Refer [Quick Start] | [Data]
 
