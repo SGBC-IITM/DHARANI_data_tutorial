@@ -64,8 +64,26 @@ def boundarymask(contour, mpp):
     return msk
 
 
-def morph_contour(fromcontour, tocontour, fromnum, tonum, internum, mpp, check_dist=False):
-    
+def morph_contour(fromcontour:np.ndarray, tocontour:np.ndarray, fromnum:int, tonum:int, internum:int, mpp:float, check_dist=False):
+    """
+    Morphs a contour from 'fromcontour' towards 'tocontour' at an intermediate z-level.
+    Returns the intermediate contour, pointwise correspondences, and width list.
+
+    Args:
+        fromcontour: Numpy array of points for the starting contour (N, 2).
+        tocontour: Numpy array of points for the target contour (M, 2).
+        fromnum: Z-level of fromcontour.
+        tonum: Z-level of tocontour.
+        internum: Z-level of the desired intermediate contour (must be between fromnum and tonum).
+        mpp: Microns per pixel, used for boundarymask size.
+        check_dist: If True, applies a heuristic to prevent large jumps in corresponding points.
+
+    Returns:
+        newpts: Numpy array of points for the morphed contour at internum.
+        pairs: List of tuples (point_from_fromcontour, corresponding_point_from_tocontour_mask).
+               This order is guaranteed regardless of internal swap logic.
+        widthlist: List of distances between corresponding points in 'pairs'.
+    """
     # frommsk = boundarymask(fromcontour)
     
     # plt.subplot(1,3,1)
@@ -79,9 +97,11 @@ def morph_contour(fromcontour, tocontour, fromnum, tonum, internum, mpp, check_d
     nsteps = tonum-fromnum+1
     stepnum = internum-fromnum
     
+    swapped = False
     
     if tonum - internum < stepnum or len(tocontour)>len(fromcontour):
         logger.debug(f'swap: fromnum {fromnum}, internum {internum} tonum {tonum}')
+        swapped = True
         stepnum = tonum - internum
         dstmsk = boundarymask(fromcontour, mpp)
         srcpts = tocontour
@@ -122,7 +142,11 @@ def morph_contour(fromcontour, tocontour, fromnum, tonum, internum, mpp, check_d
             newpt = np.array(pt) + u*m/nsteps*stepnum
             newpts.append(newpt)
 
-    return np.array(newpts), pairs, widthlist
+    if swapped:
+        pairs_fixed = [(pairpt,pt) for pt, pairpt in pairs]
+    else:
+        pairs_fixed = pairs
+    return np.array(newpts), pairs_fixed, widthlist
 
 
 def _constrained_triangulate(polygon:shapely.Geometry):
@@ -169,6 +193,220 @@ def make_mesh(polydict:Dict[int,shapely.Geometry], downsample):
 
     return mesh
 
+from typing import List, Tuple, Union
+
+def create_surface_between_contours(
+    point_pairs: List[Tuple[Union[np.ndarray, List[float]], Union[np.ndarray, List[float]]]],
+    z_for_first_points: float,
+    z_for_second_points: float
+) -> trimesh.Trimesh:
+    """
+    Creates a 3D surface (Trimesh) between two contours that have point-wise correspondences.
+    This function effectively "skins" the two contours to form a tube-like structure.
+
+    Args:
+        point_pairs: A list of tuples, where each tuple (p1, p2) contains
+                     corresponding 2D points from the first and second contours,
+                     respectively. p1 and p2 are expected to be [x, y] coordinates.
+                     Example: [([x1a, y1a], [x2a, y2a]), ([x1b, y1b], [x2b, y2b]), ...]
+        z_for_first_points: The z-coordinate for all first points (p1) in the pairs.
+        z_for_second_points: The z-coordinate for all second points (p2) in the pairs.
+
+    Returns:
+        A trimesh.Trimesh object representing the surface connecting the two contours.
+        Returns an empty Trimesh if not enough pairs are provided (less than 2)
+        to form a surface.
+    """
+    if not point_pairs or len(point_pairs) < 2:
+        # Not enough points/pairs to form a surface
+        return trimesh.Trimesh()
+
+    vertices = []
+    for p1, p2 in point_pairs:
+        vertices.append([p1[0], p1[1], z_for_first_points])
+        vertices.append([p2[0], p2[1], z_for_second_points])
+    
+    vertices_np = np.array(vertices, dtype=float)
+
+    faces = []
+    num_correspondences = len(point_pairs)
+
+    for i in range(num_correspondences):
+        # Index of the i-th point on the first contour (at z_for_first_points)
+        idx_p1_i = 2 * i
+        # Index of the i-th point on the second contour (at z_for_second_points)
+        idx_p2_i = 2 * i + 1
+        
+        # Index of the (i+1)-th point on the first contour (wrapping around)
+        idx_p1_next_i = 2 * ((i + 1) % num_correspondences)
+        # Index of the (i+1)-th point on the second contour (wrapping around)
+        idx_p2_next_i = 2 * ((i + 1) % num_correspondences) + 1
+
+        # Create two triangles for the quad formed by (p1_i, p2_i, p2_next_i, p1_next_i)
+        # Triangle 1: (p1_i, p2_i, p2_next_i)
+        faces.append([idx_p1_i, idx_p2_i, idx_p2_next_i])
+        # Triangle 2: (p1_i, p2_next_i, p1_next_i)
+        faces.append([idx_p1_i, idx_p2_next_i, idx_p1_next_i])
+    
+    faces_np = np.array(faces, dtype=int)
+
+    if vertices_np.shape[0] == 0 or faces_np.shape[0] == 0:
+        return trimesh.Trimesh() # Should not happen if len(point_pairs) >= 2
+        
+    return trimesh.Trimesh(vertices=vertices_np, faces=faces_np)
+
+class ContourSequenceMesher:
+    """
+    Accumulates a sequence of 2D contours at different z-levels and builds
+    a 3D surface mesh by skinning between consecutive contours.
+
+    The mesh is built incrementally between each pair of consecutive contours
+    in the sequence, sorted by z-level.
+    """
+
+    def __init__(self, mpp: float):
+        """
+        Initializes the mesher.
+
+        Args:
+            mpp: Microns per pixel, used by the morphing function.
+        """
+        self._mpp = mpp
+        # Store contours as numpy arrays of points, keyed by z_level
+        # Using float for z_level keys to handle potential non-integer section numbers
+        self._contours: Dict[int, np.ndarray] = {}
+        self._mesh: trimesh.Trimesh = trimesh.Trimesh() # Start with an empty mesh
+        self._is_built = False # Flag to track if the mesh needs rebuilding
+
+    def add_contour(self, contour:  np.ndarray, z_level: int):
+        """
+        Adds a contour at a specific z-level to the sequence.
+
+        Adding a contour invalidates the current mesh, requiring a rebuild
+        via `build_mesh()` or `get_mesh()`.
+
+        Args:
+            contour: The 2D contour. Can be a Shapely Polygon, a numpy array
+                     of points (N, 2), or a list of (x, y) tuples.
+                     If a Shapely Polygon, only the exterior boundary is used.
+            z_level: The z-coordinate for this contour.
+        """
+        
+        # Store points. morph_contour's boundarymask expects int, but morph_contour
+        # itself seems to handle float input and returns float pairs.
+        # Let's store as float and ensure morph_contour handles it.
+        # If morph_contour truly requires int input, we'd convert here.
+        # Based on the provided code, boundarymask converts to int internally.
+        # So, passing float points to morph_contour should be fine.
+        self._contours[z_level] = contour.astype(float) # Store as float z_level
+
+        self._is_built = False # Mark mesh as needing rebuild
+
+    def build_mesh(self):
+        """
+        Builds or rebuilds the 3D mesh from the accumulated contours.
+        This method sorts contours by z-level and creates mesh segments
+        between each consecutive pair.
+        """
+        if len(self._contours) < 2:
+            logging.info("Need at least two contours to build a mesh.")
+            self._mesh = trimesh.Trimesh() # Reset to empty
+            self._is_built = True
+            return
+
+        sorted_z_levels = sorted(self._contours.keys())
+        all_segments = []
+
+        for i in range(len(sorted_z_levels) - 1):
+            z1 = sorted_z_levels[i]
+            z2 = sorted_z_levels[i+1]
+            contour1_np = self._contours[z1]
+            contour2_np = self._contours[z2]
+
+            # morph_contour requires internum between fromnum and tonum.
+            # The exact value doesn't affect the 'pairs' output used for skinning
+            # between the original contours, as long as the swap logic is consistent.
+            # Let's use the midpoint.
+            # internum = z1 + (z2 - z1) / 2.0
+            internum = (z1+z2)//2
+
+            # Call morph_contour to get correspondences
+            # We only need the 'pairs' output
+            # Note: morph_contour expects fromcontour and tocontour as numpy arrays
+            _, pairs, _ = morph_contour(contour1_np, contour2_np, z1, z2, internum, self._mpp)
+
+            if not pairs:
+                print(f"Warning: No pairs generated between z={z1} and z={z2}. Skipping segment.")
+                continue
+
+            # Determine the correct order of points in pairs for create_surface_between_contours
+            # based on morph_contour's internal swap logic.
+            # The swap condition from morph_contour:
+            # swapped = (tonum - internum < stepnum) or (len(tocontour) > len(fromcontour))
+            # where stepnum = internum - fromnum
+            # So, swapped = (z2 - internum < internum - z1) or (len(contour2_np) > len(contour1_np))
+            # If swapped is True, pairs are (point_from_contour2, point_from_contour1_mask)
+            # If swapped is False, pairs are (point_from_contour1, point_from_contour2_mask)
+
+            stepnum_in_morph = internum - z1
+            # Replicate the swap logic from morph_contour
+            swapped = (z2 - internum < stepnum_in_morph) or (len(contour2_np) > len(contour1_np))
+
+            pairs_for_surface = pairs
+            z_first = float(z1)
+            z_second = float(z2)
+
+            # Create the mesh segment between these two contours
+            segment_mesh = create_surface_between_contours(
+                pairs_for_surface,
+                z_first,
+                z_second
+            )
+            all_segments.append(segment_mesh)
+
+        if all_segments:
+            # Concatenate all segment meshes
+            # Ensure all segments are valid meshes before concatenating
+            valid_segments = [seg for seg in all_segments if seg.vertices.shape[0] > 0 and seg.faces.shape[0] > 0]
+            if valid_segments:
+                 self._mesh = trimesh.util.concatenate(valid_segments)
+            else:
+                 self._mesh = trimesh.Trimesh() # No valid segments created
+        else:
+            self._mesh = trimesh.Trimesh() # No segments created
+
+        self._is_built = True
+
+    def get_mesh(self) -> trimesh.Trimesh:
+        """
+        Returns the built Trimesh object. Builds the mesh if it's not already built
+        or if new contours have been added since the last build.
+        """
+        if not self._is_built:
+            self.build_mesh()
+        return self._mesh
+
+    def clear_contours(self):
+        """
+        Clears all added contours and resets the mesh.
+        """
+        self._contours = {}
+        self._mesh = trimesh.Trimesh()
+        self._is_built = False
+
+    def get_z_levels(self) -> List[float]:
+        """
+        Returns the z-levels of the added contours, sorted.
+        """
+        return sorted(self._contours.keys())
+
+    # def get_contour(self, z_level: float) -> Union[np.ndarray, None]:
+    #     """
+    #     Returns the contour (as a numpy array) at the specified z-level.
+    #     Returns None if no contour exists at that z-level.
+    #     """
+    #     return self._contours.get(z_level)
+    
 
 def morph_shape(fromshape_in, toshape_in, fromnum, tonum, internum, mpp):
     fromshape = get_valid_shape(fromshape_in)
