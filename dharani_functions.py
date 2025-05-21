@@ -18,6 +18,46 @@ logger = logging.getLogger(__name__)
 
 s3 = s3fs.S3FileSystem(anon=True)
 
+def _geojson_to_geometries(secnum, annot, mpp):
+    # aggregate by ontoid
+    shapes = defaultdict(list)
+    
+    for feat in annot['features']:
+        ontoid = int(feat['properties']['data']['id'])
+        coordinates = np.abs(np.array(feat['geometry']['coordinates'])).squeeze()/mpp
+
+        if feat['geometry']['type']!='Polygon':
+            logger.warning(f"sec {secnum} - skipped {ontoid} : geomtype {feat['geometry']['type']}")
+            continue
+
+        if len(coordinates)<4:
+            logger.warning(f"sec {secnum} - skipped {ontoid} : too few coordinates {coordinates.shape}")
+            continue
+
+        updatedgeom = {
+            'type':feat['geometry']['type'],
+            'coordinates': [coordinates.tolist()]
+        }
+        
+        
+        shape = make_shape(updatedgeom).buffer(0)
+        
+        shapes[ontoid].append(shape)
+
+    # revisit and make multi
+    
+    outdict = {}
+    for ontoid,shplist in shapes.items():
+        united = None
+        for shp in shplist:
+            if united is None:
+                united = shp
+            else:
+                united = united.union(shp)
+
+        outdict[ontoid]=united
+    return outdict
+
 class DharaniHelper:
     """
     Helper for simplified access to Dharani image and annotation data from 
@@ -35,6 +75,7 @@ class DharaniHelper:
         assert downsample >=0 and downsample <= 7 
         self._specimennum = specimennum
         self._downsample = downsample
+        self._annotations_cache={}
         
 
     def __str__(self):
@@ -62,6 +103,11 @@ class DharaniHelper:
         return f'dharani-fetal-brain-atlas/data2d/specimen_{self._specimennum}'
 
     def get_filenames(self):
+        """
+        List the files in s3 bucket corresponding to this specimen;
+        Returns a dict: secno->{'image':image_tif_filename, 'annotation':annotation_json_filename}
+        the key 'annotation' exists only for annotated sections.
+        """
         contents_1=s3.ls(self.get_s3_key())
         tiflist = []
         jsonlist = []
@@ -113,6 +159,7 @@ class DharaniHelper:
         annoturl_http = f'{baseurl}/{annoturl}'
         if not s3.exists(f'{baseurl_s3}/{annoturl}'):
             annoturl_http = None
+
         if self._downsample > 2:
             imgurl = self._get_base64_imgurl(secnum)
         elif self._downsample==0:
@@ -125,7 +172,8 @@ class DharaniHelper:
 
     def get_zoomable_img_url(self, secnum:int):
         """
-        Returns zoomable image url for this section
+        Returns zoomable image url (HTTP and S3) for this section.
+        This typically points to the full resolution TIFF.
         """
 
         baseurl_s3 = f's3://dharani-fetal-brain-atlas'
@@ -133,6 +181,11 @@ class DharaniHelper:
 
         httpurl = f'{baseurl}/data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.tif'
         s3url = f'{baseurl_s3}/data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.tif'
+        
+        if not s3.exists(s3url):
+            logger.error(f'secnum {secnum} does not exist')
+            return None, None
+        
         return httpurl, s3url
     
     def get_imagedims(self, secnum:int):
@@ -142,6 +195,10 @@ class DharaniHelper:
         """
 
         s3url = f's3://dharani-fetal-brain-atlas/data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.tif'
+        if not s3.exists(s3url):
+            logger.error(f'secnum {secnum} does not exist')
+            return None, None
+        
         accessor = PyrTifAccessor(s3url)
         info = accessor.get_info(0,0,0)
         return info['imagewidth'], info['imageheight']
@@ -163,6 +220,10 @@ class DharaniHelper:
         """
         
         s3url = f's3://dharani-fetal-brain-atlas/data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.tif'
+        if not s3.exists(s3url):
+            logger.error(f'secnum {secnum} does not exist')
+            return None
+        
         accessor = PyrTifAccessor(s3url)
         maxlevel = len(accessor.infodict['series'][0]['levels'])-1
         assert self._downsample > 2, "Section image access for mpp<8 not supported"
@@ -177,8 +238,8 @@ class DharaniHelper:
         if postresizefactor > 1:
             shp = page.shape
             out = np.zeros((shp[0]//postresizefactor, shp[1]//postresizefactor, shp[2]),page.dtype)
-            for ch in range(3):
-                out[...,ch] = zoom(page[...,ch],1/postresizefactor)
+            for ch in range(shp[2]):
+                out[...,ch] = zoom(page[...,ch],1/postresizefactor, order=1)
         else:
             out = page
         return out
@@ -188,52 +249,24 @@ class DharaniHelper:
         returns annotation as dict where
         keys are ontoid, values are shapely.Geometry
         """
+        if secnum in self._annotations_cache:
+            return self._annotations_cache[secnum]
         
         jsonpath = f'data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.json'
-        if not s3.exists('dharani-fetal-brain-atlas/'+jsonpath):
+        s3url = 'dharani-fetal-brain-atlas/'+jsonpath
+        if not s3.exists(s3url):
+            logging.debug('json not found:'+str(secnum))
             return {}
 
-        with s3.open('dharani-fetal-brain-atlas/'+jsonpath) as fp:
+        with s3.open(s3url) as fp:
             annot = json.load(fp)
             # {type: featurecollection, features: [features] }
-
-        # aggregate by ontoid
-        shapes = defaultdict(list)
-        mpp = 2**self._downsample
-        for feat in annot['features']:
-            ontoid = int(feat['properties']['data']['id'])
-            coordinates = np.abs(np.array(feat['geometry']['coordinates'])).squeeze()/mpp
-
-            if feat['geometry']['type']!='Polygon':
-                logger.warning(f"sec {secnum} - skipped {ontoid} : geomtype {feat['geometry']['type']}")
-                continue
-
-            if len(coordinates)<4:
-                logger.warning(f"sec {secnum} - skipped {ontoid} : too few coordinates {coordinates.shape}")
-                continue
-
-            updatedgeom = {
-                'type':feat['geometry']['type'],
-                'coordinates': [coordinates.tolist()]
-            }
-            
-            
-            shape = make_shape(updatedgeom).buffer(0)
-            
-            shapes[ontoid].append(shape)
-
-        # revisit and make multi
         
-        outdict = {}
-        for ontoid,shplist in shapes.items():
-            united = None
-            for shp in shplist:
-                if united is None:
-                    united = shp
-                else:
-                    united = united.union(shp)
+        mpp = 2**self._downsample
+        outdict = _geojson_to_geometries(secnum, annot, mpp)
 
-            outdict[ontoid]=united
+        self._annotations_cache[secnum]=outdict
+
         return outdict
 
     def get_viewer_url(self, secnum:int):
@@ -250,16 +283,26 @@ class DharaniHelper:
         keys are ontoids, values are dict of secno:shapely.Geometry
         """
 
-        secnos = self.get_section_numbers()
+        # secnos = self.get_section_numbers()
+        filenamedict = self.get_filenames()
+        secnos = [key for key in filenamedict if 'annotation' in filenamedict[key]]
+
         outdict = defaultdict(dict)
+
+        def _configure_worker_logging():
+            # For passing in  initializer argument to joblib Parallel
+            if not logging.root.handlers:
+                logging.basicConfig(level=logging.INFO)
 
         def workerfunc(secnum):
             try:
                 annot_seci = self.get_annotation(secnum)
+                # NOTE: this can be taken from self._annotations_cache at caller, rather than returning
+                # but showing here, as a useful design pattern
                 return secnum, annot_seci
             except:
                 logger.error(f'ERR: sec {secnum}')
-                return secnum, None
+                return secnum, {}
 
         if not concurrent:
             for secnum in secnos:
@@ -268,12 +311,13 @@ class DharaniHelper:
                     outdict[ontoid][secnum]=shp
                 
         else:
-            results = Parallel(n_jobs=4)(
-                delayed(workerfunc)(secnum) for secnum in secnos
-            )
-            for secnum, annot_seci in results:
-                for ontoid,shp in annot_seci.items():
-                    outdict[ontoid][secnum]=shp
+            with Parallel(n_jobs=4) as executor:
+                results = executor(
+                    delayed(workerfunc)(secnum) for secnum in secnos
+                )
+                for secnum, annot_seci in results:
+                    for ontoid,shp in annot_seci.items():
+                        outdict[ontoid][secnum]=shp
                     
         return outdict
     

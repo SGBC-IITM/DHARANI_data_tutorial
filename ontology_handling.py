@@ -188,12 +188,14 @@ class TreeHelper:
     def get_ancestor_ids(self, ontoid:int)->List[int]:
         """get a list of ancestor ids, general to specialized"""
         idlist = []
-        if ontoid>0:
+        if ontoid in self.onto_lookup:
             lastrec = self.onto_lookup[ontoid]
             while lastrec.parentid != 0:
                 idlist.append(lastrec.parentid)
                 lastrec = self.onto_lookup[lastrec.parentid]
-
+        else:
+            logging.error(f"ontoid {ontoid} not recognized")
+            
         return list(reversed(idlist))
     
     def get_successor_ids(self, ontoid:int)->List[int]:

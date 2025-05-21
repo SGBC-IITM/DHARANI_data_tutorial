@@ -1,7 +1,17 @@
+#! python
+# Script to generate the csv files in directory-listings
+# run from repo toplevel as:
+# python scripts/make_listings.py [dataset] [specimennum]
+# dataset: dharani or allen
+# specimennum: refer docs/Data.md
+
+import sys
+sys.path.append('.')
+
 from dharani_functions import DharaniHelper
 from allen_functions import AllenHelper
 
-import sys
+
 from tqdm import tqdm
 
 def main(helper):
