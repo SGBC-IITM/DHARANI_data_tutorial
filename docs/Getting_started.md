@@ -38,9 +38,41 @@ and execute it.
 
 ### AWS Sagemaker Studio Lab
 
-Please register at https://studiolab.sagemaker.aws/ for a free account.
+Please register at https://studiolab.sagemaker.aws/ for a free account. 
 
-More instructions coming soon.
+Visit the developer guide at https://docs.aws.amazon.com/sagemaker/latest/dg/studio-lab-onboard.html for help.
+
+Activate your account (might involve few days waiting for an approval email). Then create account, and start runtime.
+
+![smslinstance]
+
+[smslinstance]: ../assets/studiolab_launch.png
+
+Provide mobile number if asked, and verify with OTP sent to mobile.
+
+- Open project
+![smsllaunch]
+
+[smsllaunch]:../assets/studiolab_open_project.png
+
+- Clone git repo
+
+Left vertical panel 3rd option --> 'Clone a Repository' --> enter Dharani tutorial https git clone url
+![smslclone]
+
+[smslclone]: ../assets/studiolab_clone_git.png
+
+- On left panel showing the repo files, navigate to notebooks folder, and select the notebook file (.ipynb) you wish to execute, to open it in the main panel.
+
+- In the notebook, insert code block to type and execute the following
+```
+!pip install -e ../requirements_3.10.txt
+```
+![smslscreen]
+
+[smslscreen]:../assets/studiolab_notebook_preamble.png
+
+- Continue executing the rest of the notebook.
 
 ## Local setup
 Operational familiarity with a command line is required.
