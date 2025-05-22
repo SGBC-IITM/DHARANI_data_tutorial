@@ -214,7 +214,7 @@ class AllenHelper:
             for ontoid,shp in annot_seci.items():
                 outdict[ontoid][secnum]=shp
 
-        return outdict
+        return dict(outdict)
     
 
 #%% util functions for handling svg, shapely 
@@ -282,5 +282,5 @@ def get_svg_paths_as_shapes(svg_data, scale=1):
         
         shapes[ontoid].append(shp)
 
-    return shapes
+    return dict(shapes)
 

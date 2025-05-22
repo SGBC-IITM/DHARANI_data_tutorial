@@ -48,7 +48,7 @@ def get_max_width(shape:shapely.Geometry):
     return 2*radius
 
 def get_properties(shape:shapely.Geometry):
-    
+
     num_comp = 1
     if shape.geom_type=='MultiPolygon':
         num_comp = len(shape.geoms)
@@ -122,7 +122,7 @@ def get_level_ids(annot:'Annotation', ontohelper:'TreeHelper'):
         rec = ontohelper.onto_lookup[ontoid]
         level_ids[rec.level].append(ontoid)
     
-    return level_ids
+    return dict(level_ids)
 
 
 def get_reachable_parents(annot:'Annotation', ontohelper:'TreeHelper'):
@@ -179,7 +179,7 @@ def get_nonreachable(annot:'Annotation', ontohelper:'TreeHelper'):
             nrdict[parentid].append(oid)
         else:
             leaves.append(oid)
-    return nrdict, leaves
+    return dict(nrdict), leaves
 
 def _remove_small_interiors(shp:shapely.Geometry):
     if shp.geom_type=='MultiPolygon':
@@ -236,6 +236,6 @@ def find_superids(annot:'Annotation',ontohelper:'TreeHelper'):
             if drawnid in parentids:
                 superids[drawnid].append(ontoid)
 
-    return superids
+    return dict(superids)
     
     

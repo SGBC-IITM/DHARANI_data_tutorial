@@ -336,7 +336,7 @@ class TreeHelper:
                 if rec.acronym.endswith(areanamesuffix):
                     idlist[areanamesuffix].append(id)
         
-        return idlist
+        return dict(idlist)
     
     def get_ids_of_layered_areas(self)->List[int]:
         # FIXME: works for self.ontoname=='dharani' only
@@ -347,7 +347,7 @@ class TreeHelper:
             for zoneprefix in zoneprefixes:
                 if rec.acronym.startswith(zoneprefix) and rec.acronym!=zoneprefix+'CTX':
                     idlist[zoneprefix].append(id)
-        return idlist
+        return dict(idlist)
     
     def print_subtree(self, grpname:str):
         print('[lvl] id (acronym) name')

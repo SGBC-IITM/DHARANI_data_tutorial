@@ -319,5 +319,5 @@ class DharaniHelper:
                     for ontoid,shp in annot_seci.items():
                         outdict[ontoid][secnum]=shp
                     
-        return outdict
+        return dict(outdict)
     
