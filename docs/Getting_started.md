@@ -98,13 +98,16 @@ Left vertical panel 3rd option --> 'Clone a Repository' --> enter Dharani tutori
 To bring out the Github Co-pilot, use the icon on the top panel. You can connect to GPT-4o, or other AI models (might require account with the respective AI model provider) on the right panel, and chat about the code, ask for help, or make it write code to implement the functionality you desire.
 ![codespace-copilot]
 
-4. To stop the codespace, click the bottom left blue bar, which might say something like `Codespaces: fancynameof thecodespace`, to get a pulldown menu, having options like `Stop Current Codespace`, and more options. Use this to stop the codespace. Note: It will remain stopped, but not ended, so you can go to your codespaces page () and restart it if you want, or delete the codespace.
+4. To stop the codespace, click the bottom left blue bar, which might say something like `Codespaces: fancynameof thecodespace`, to get a pulldown menu, having options like `Stop Current Codespace`, and more options. Use this to stop the codespace. Note: It will remain stopped, but not ended, so you can go to your codespaces page (https://github.com/codespaces) and restart it if you want, or delete the codespace.
 
 ![codespace-control]
+
+![codespace-delete]
 
 [codespace-create]:../assets/codespace_create.png
 [codespace-copilot]:../assets/codespace_copilot.png
 [codespace-control]:../assets/codespace_control.png
+[codespace-delete]:../assets/codespace_delete.png
 
 
 ## Local setup
