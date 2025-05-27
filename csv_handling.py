@@ -42,8 +42,10 @@ def load_csv(listingfilename, keycol='section_number'):
             if keycol is not None:
                 keyval = getattr(rec,keycol)
                 if keyval.isdigit():
+                    assert int(keyval) not in listing, 'duplicate key:'+keyval
                     listing[int(keyval)]=rec
                 else:
+                    assert keyval not in listing, 'duplicate key:'+keyval
                     listing[keyval]=rec
             else:
                 listing.append(rec._asdict()) # suitable for constructing pandas DataFrame
