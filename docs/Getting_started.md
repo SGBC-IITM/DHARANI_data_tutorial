@@ -4,7 +4,19 @@ Dharani/docs/Getting started
 
 [Back]:README.md
 
+The tutorial is compatible with local setup, as well as cloud.
+For cloud instructions, see the [Google Colab](#google-colab), [AWS Sagemaker studio lab](#aws-sagemaker-studio-lab), and [Github codespace](#github-codespace).
+
+If you prefer a local environment, jump to [Local Setup](#local-setup).
+
 ## Try on cloud 
+Pros:
+* zero setup
+* co-pilot possibilities, vibe coding
+* try from anywhere (e.g., tablet PC)
+
+Cons:
+* usage limits (for free tier)
 
 ### Google Colab
 1. `Open` a notebook in colab
@@ -74,6 +86,27 @@ Left vertical panel 3rd option --> 'Clone a Repository' --> enter Dharani tutori
 
 - Continue executing the rest of the notebook.
 
+### Github Codespace
+1. Login to Github.com, and visit the Dharani tutorial repository (https://github.com/SGBC-IITM/DHARANI_data_tutorial/)
+
+2. Click the green button `Code` and toggle to `Codespace`. Click `Create codespace on main`.
+
+![codespace-create]
+
+3. Once the codespace is setup (appears like VS Code within your browser window), you can navigate to the notebooks folder, select any notebook, and begin working. 
+
+To bring out the Github Co-pilot, use the icon on the top panel. You can connect to GPT-4o, or other AI models (might require account with the respective AI model provider) on the right panel, and chat about the code, ask for help, or make it write code to implement the functionality you desire.
+![codespace-copilot]
+
+4. To stop the codespace, click the bottom left blue bar, which might say something like `Codespaces: fancynameof thecodespace`, to get a pulldown menu, having options like `Stop Current Codespace`, and more options. Use this to stop the codespace. Note: It will remain stopped, but not ended, so you can go to your codespaces page () and restart it if you want, or delete the codespace.
+
+![codespace-control]
+
+[codespace-create]:../assets/codespace_create.png
+[codespace-copilot]:../assets/codespace_copilot.png
+[codespace-control]:../assets/codespace_control.png
+
+
 ## Local setup
 Operational familiarity with a command line is required.
 
@@ -139,4 +172,4 @@ Enable the **ToC side bar** in the jupyter notebook
 
 Refer [HowTo] for details.
 
-[HowTo]: ../docs/HOWTO.md
+[HowTo]: HOWTO.md
