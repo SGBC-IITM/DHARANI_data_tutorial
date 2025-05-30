@@ -10,13 +10,15 @@ For cloud instructions, see the [Google Colab](#google-colab), [AWS Sagemaker st
 If you prefer a local environment, jump to [Local Setup](#local-setup).
 
 ## Try on cloud 
-Pros:
-* zero setup
-* co-pilot possibilities, vibe coding
-* try from anywhere (e.g., tablet PC)
 
-Cons:
-* usage limits (for free tier)
+|Pros: | cons|
+|:--- | :---|
+| * zero setup <br> * co-pilot possibilities, vibe coding <br>* try from anywhere (e.g., tablet PC)| * usage limits (for free tier)|
+
+We provide guides here for popular cloud options: 
+* [Google Colab](#google-colab) a familiar notebook interface, 
+* [AWS Sagemaker studio lab](#aws-sagemaker-studio-lab), a jupyter lab interface, 
+* [Github codespace](#github-codespace), which virtualizes VS Code on cloud, and serves as a ready-to-use dev environment for this repository.
 
 ### Google Colab
 1. `Open` a notebook in colab
@@ -111,6 +113,8 @@ To bring out the Github Co-pilot, use the icon on the top panel. You can connect
 
 
 ## Local setup
+This is the regular workflow, of setting up the codes in your own computer at a designated folder, preparing the environment, and working within the environment.
+
 Operational familiarity with a command line is required.
 
 1. `clone` this github repository to your computer
@@ -173,6 +177,7 @@ Enable the **ToC side bar** in the jupyter notebook
 
 *Menu Navigation* :: View->Left Sidebar -> Show Table of Contents
 
-Refer [HowTo] for details.
+Refer [HowTo] for details. View or submit [issues] if any.
 
 [HowTo]: HOWTO.md
+[issues]: https://github.com/SGBC-IITM/DHARANI_data_tutorial/issues/

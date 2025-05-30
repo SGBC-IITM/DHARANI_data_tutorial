@@ -317,11 +317,17 @@ class ContourSequenceMesher:
         sorted_z_levels = sorted(self._contours.keys())
         all_segments = []
 
+        medgap = np.median(np.diff(sorted_z_levels))
+
         for i in range(len(sorted_z_levels) - 1):
             z1 = sorted_z_levels[i]
             z2 = sorted_z_levels[i+1]
             contour1_np = self._contours[z1]
             contour2_np = self._contours[z2]
+    
+            if z2-z1 > 1.5*medgap:
+                logging.warning(f"Gap between z={z1} and z={z2} is larger than 1.5*median {medgap}.")
+                continue
 
             # morph_contour requires internum between fromnum and tonum.
             # The exact value doesn't affect the 'pairs' output used for skinning
@@ -336,7 +342,7 @@ class ContourSequenceMesher:
             _, pairs, _ = morph_contour(contour1_np, contour2_np, z1, z2, internum, self._mpp)
 
             if not pairs:
-                print(f"Warning: No pairs generated between z={z1} and z={z2}. Skipping segment.")
+                logging.warning(f"No pairs generated between z={z1} and z={z2}. Skipping segment.")
                 continue
 
             # Determine the correct order of points in pairs for create_surface_between_contours
@@ -348,9 +354,9 @@ class ContourSequenceMesher:
             # If swapped is True, pairs are (point_from_contour2, point_from_contour1_mask)
             # If swapped is False, pairs are (point_from_contour1, point_from_contour2_mask)
 
-            stepnum_in_morph = internum - z1
+            # stepnum_in_morph = internum - z1
             # Replicate the swap logic from morph_contour
-            swapped = (z2 - internum < stepnum_in_morph) or (len(contour2_np) > len(contour1_np))
+            # swapped = (z2 - internum < stepnum_in_morph) or (len(contour2_np) > len(contour1_np))
 
             pairs_for_surface = pairs
             z_first = float(z1)
