@@ -15,7 +15,11 @@ This volumetric perspective allows for a more comprehensive and accurate assessm
 
 ## The developing brain
  the DHARANI resource distinguishes itself by providing a longitudinal perspective on brain development during the second trimester, encompassing data from 14 to 24 gestational weeks (GW). This range is critical as it covers a period of rapid and significant neurodevelopmental changes, including the formation and maturation of key brain structures and the organization of cortical layers. By offering 3D histological reconstructions across these gestational weeks, DHARANI enables researchers to make `direct comparative observations` of how brain regions grow, how connections form, and how cytoarchitecture evolves over time. This longitudinal sampling is essential for understanding the typical trajectory of brain development and for identifying potential deviations that may arise from various factors or conditions during this sensitive period.
- 
+
+Read more on [fetal brain anomalies] observable in histology.
+
+[fetal brain anomalies]: fetal_brain_anomalies.md
+
 ## Dharani online platform
 Dharani's online platform is dedicated to providing three-dimensional (3D) histological reconstructions of the developing human brain during the critical second trimester of gestation, specifically spanning from 14 to 24 gestational weeks (GW). This unique resource encompasses five fetal brains and offers a wealth of detailed anatomical information. The platform features over 5000 histological sections, stained with both Nissl and hematoxylin and eosin (H&E), at a resolution of 20 µm for coronal and sagittal sections. 
 
