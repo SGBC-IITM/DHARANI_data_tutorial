@@ -5,13 +5,25 @@ There are multiple AI-based image analysis models and methods that can be used t
 
 | Applications | Task | Methods | 
 |:-- | :-- | :-- |
-| * Delineating disrupted cortical lamination (e.g., in lissencephaly).<br> *  Identifying germinal matrix or periventricular regions (e.g., for GMH). <br> * Mapping white vs. gray matter in myelination studies. | Tissue & region segmentation <br> (Useful for localizing anatomical structures, lesions, and abnormal regions) | * **U-Net variants**: For fine-grained segmentation of cortical layers, ventricles, germinal matrix. <br> * **Vision Transformers** (e.g., Mask2Former, Segment Anything variants): For high-resolution and hierarchical region segmentation. <br> * **HoVer-Net / Cellpose**: For nuclei and cell boundary segmentation. |
-| *Neuronal depletion in hypoxic-ischemic encephalopathy (HIE).<br> * Proliferation deficits in microcephaly (with Ki-67 labeling). <br> * Increased gliosis in PVL (astrocytes, microglia). | Cell counting & density estimation <br> (Quantifies changes in cell populations and cytoarchitecture) | * **StarDist / Cellpose / QuPath**: For automatic nuclear segmentation and counting.<br> * **Patch-based CNNs or ViTs**: For estimating cell density in tiles. <br> * Density heatmaps: Using **kernel density estimation** or deep regression models. |
-| * Detecting disrupted layering in polymicrogyria or lissencephaly.<br> * Identifying ectopic neurons in heterotopias. <br> * Characterizing cortical plate vs. subplate. | Cortical Layering & Cytoarchitecture Analysis <br> (Detects abnormalities in cortical development, lamination, and migration) | * Delineation of layers using CNN-based **boundary detectors** or ViTs with positional encoding. <br> * Self-supervised models (e.g., DINO, MAE) for **feature learning from unlabeled slides**. <br> * **Graph-based methods**: Mapping neuronal positions and connectivity.|
+| * Delineating disrupted cortical lamination (e.g., in lissencephaly).<br> *  Identifying germinal matrix or periventricular regions (e.g., for GMH). <br> * Mapping white vs. gray matter in myelination studies. | Tissue & region segmentation <br> (Useful for localizing anatomical structures, lesions, and abnormal regions) | * **U-Net variants**: For fine-grained [segmentation] of cortical layers, ventricles, germinal matrix. <br> * **Vision Transformers** (e.g., [Mask2Former], [Segment Anything] variants): For high-resolution and hierarchical region segmentation. <br> * **[HoVer-Net] / [Cellpose]**: For nuclei and cell boundary segmentation. |
+| *Neuronal depletion in hypoxic-ischemic encephalopathy (HIE).<br> * Proliferation deficits in microcephaly (with Ki-67 labeling). <br> * Increased gliosis in PVL (astrocytes, microglia). | Cell counting & density estimation <br> (Quantifies changes in cell populations and cytoarchitecture) | * **[StarDist] / Cellpose / QuPath**: For automatic [nuclear segmentation] and counting.<br> * **Patch-based CNNs or ViTs**: For estimating [cell density] in tiles. <br> * [Density heatmaps]: Using **kernel density estimation** or deep regression models. |
+| * Detecting disrupted layering in polymicrogyria or lissencephaly.<br> * Identifying ectopic neurons in heterotopias. <br> * Characterizing cortical plate vs. subplate. | Cortical Layering & Cytoarchitecture Analysis <br> (Detects abnormalities in cortical development, lamination, and migration) | * Delineation of layers using CNN-based **boundary detectors** or [ViTs] with positional encoding. <br> * [Self-supervised] models (e.g., DINO, MAE) for **feature learning from unlabeled slides**. <br> * **Graph-based methods**: Mapping neuronal positions and connectivity.|
 | * Germinal matrix hemorrhage detection.<br> * Hypoxic injury in white matter or cortex.<br> * Periventricular leukomalacia. | Vascular & Hemorrhage Detection <br> (Detects hemorrhage, vessel malformations, and hypoxia-related damage) | * Color deconvolution + rule-based **segmentation** (e.g., for hemorrhage in HE-stained sections).<br> * Deep CNN classifiers or segmenters trained on annotated vascular lesions. <br> * **Tissue classification** pipelines (e.g., in Slideflow or PathML).|
 | * Detecting delayed myelination in microcephaly. <br> * Characterizing white matter injury in PVL or HIE.<br> * Studying corpus callosum formation. | Myelination & White Matter Analysis <br> (Assesses white matter integrity and myelin development) | * **Color-based segmentation** of Luxol Fast Blue (LFB) or MBP IHC. <br> * CNNs trained to classify degree of myelination by region. <br> * **Texture-based features** or self-supervised representations for tissue characterization.|
 | * CMV: Periventricular inclusions.<br> * Toxoplasma: Cyst detection.<br> * Zika: Calcifications, neuron loss.| Detection of Pathological Cell Types or Inclusions <br> (Identifies abnormal cells or infectious agents) | * **Object detection** models (e.g., Faster R-CNN, RetinaNet) for detecting CMV-infected cells, multinucleated cells. <br> * Custom-trained classifiers for giant cells in tuberous sclerosis or microglial nodules. <br> * Tile-level **anomaly detection using autoencoders** or weak supervision. |
 | * Analyzing cortical folding in polymicrogyria.<br> * Detecting midline fusion defects.<br> * Quantifying ventricular or sulcal expansion. |  Morphometric & Shape Analysis <br> (Quantifies gyrification, structural dimensions, and malformations) |* **Image registration & morphometry**: Measuring structural symmetry/asymmetry.<br> * **Graph-based cortex unfolding**: For assessing gyri/sulci development.<br> * **Shape modeling**: For clefts (schizencephaly) or fused hemispheres (holoprosencephaly).|
+
+[ViTs]: https://github.com/lzx325/ViT-WSI-repo
+[Self-supervised]: https://github.com/histopathology/fseg
+[Density heatmaps]: https://github.com/settylab/Mellon
+[cell density]: https://developer.nvidia.com/blog/advancing-cell-segmentation-and-morphology-analysis-with-nvidia-ai-foundation-model-vista-2d/
+[nuclear segmentation]: https://github.com/vanvalenlab/deepcell-tf/tree/master/deepcell/model_zoo
+[segmentation]: https://github.com/MSKCC-Computational-Pathology/DMMN/tree/main?tab=readme-ov-file
+[Mask2Former]: https://github.com/facebookresearch/Mask2Former
+[Segment Anything]: https://doi.org/10.1007/978-3-031-47401-9_16
+[HoVer-Net]: https://catalog.ngc.nvidia.com/orgs/nvidia/teams/monaitoolkit/models/monai_pathology_nuclei_classification
+[Cellpose]: https://cellpose.readthedocs.io/en/latest/index.html
+[StarDist]: https://qupath.readthedocs.io/en/latest/docs/deep/stardist.html
 
 
 ## 🔧 Available Tools & Platforms
@@ -44,6 +56,8 @@ There are multiple AI-based image analysis models and methods that can be used t
 
 Other software tools for pathology image analysis (Fiji, CellProfiler, Ilastik, Icy) https://digitalpathologyplace.com/8-free-open-source-software-programs-for-image-analysis-of-pathology-slides/
 
+Github's collection of histopathology image analysis repositories: https://github.com/histopathology
+
 ## Foundation models
 
 Refer Mahmood Lab (Harvard) for several foundation models such as UNI, CONCH, HIPT
@@ -69,9 +83,10 @@ HistoEncoder
 - https://docs.pytorch.org/tutorials/intermediate/tiatoolbox_tutorial.html
 
 
-## Evaluation studies, benchmarkss
+## Evaluation studies, benchmarks
 - Tawsifur Rahman, Alexander S. Baras, Rama Chellappa, *Evaluation of a Task-Specific Self-Supervised Learning Framework in Digital Pathology Relative to Transfer Learning Approaches and Existing Foundation Models*, Modern Pathology,Volume 38, Issue 1,2025, https://doi.org/10.1016/j.modpat.2024.100636.
 - Zheng, S., Cui, X., Sun, Y. et al. *Benchmarking PathCLIP for Pathology Image Analysi*s. J Digit Imaging. Inform. med. 38, 422–438 (2025). https://doi.org/10.1007/s10278-024-01128-4
 - Narmin Ghaffari Laleh, Hannah Sophie Muti, Chiara Maria Lavinia Loeffler, et al,
 *Benchmarking weakly-supervised deep learning pipelines for whole slide classification in computational pathology,* Medical Image Analysis, Volume 79, 2022, https://doi.org/10.1016/j.media.2022.102474.
 - Wölflein, Georg, et al. *Benchmarking pathology feature extractors for whole slide image classification*. arXiv preprint arXiv:2311.11772 (2023). https://arxiv.org/abs/2311.11772
+- Ruining Deng, Can Cui, Quan Liu, et al., *Segment Anything Model (SAM) for Digital Pathology: Assess Zero-shot Segmentation on Whole Slide Imaging*  in Electronic Imaging,  2025,  pp 132-1 - 132-4,  https://doi.org/10.2352/EI.2025.37.14.COIMG-132
