@@ -42,6 +42,11 @@ Neuroanatomists can correlate the known/reported patterns and descriptions to vi
 
 The DHARANI data is annotated (contains detailed region delineations in the developing human fetal brain), and can be used to train models for `segmentation, visual recognition, reconstruction, computing intermediate stages and eliciting developmental patterns` required for neurobiologists to study changes, abnormalities, events and trends.
 
+Read more on [possibilities] with computer vision for fetal brain anomalies.
+
+[possibilities]:analysis_possibilities.md
+
+
 **Education**
 
 The data can power `interactive visualizations` and 3D models for teaching human neurodevelopment with anatomical accuracy.
@@ -50,6 +55,9 @@ The data can power `interactive visualizations` and 3D models for teaching human
 - Other projects :: [BigBrain]
 - Other projects :: [Allen Brainspan]
 - Other developmental brain atlases :: [MRI_atlases]
+- Other Projects::3d Atlas of [human embryo]
+
 [BigBrain]:Other_Projects_BigBrain.md
 [Allen Brainspan]: Other_Projects_Allen_brainspan.md
 [MRI_atlases]: Other_Projects_MRI_brain_atlases.md
+[human embryo]: Other_Projects_3d_embryo.md
