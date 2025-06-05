@@ -93,3 +93,4 @@ https://embryology.med.unsw.edu.au/embryology/index.php/BGDA_Lecture_-_Developme
 
 - Sun, T., Hevner, R. Growth and folding of the mammalian cerebral cortex: from molecules to malformations. Nat Rev Neurosci 15, 217–232 (2014). https://doi.org/10.1038/nrn3707
 
+- Pooh RK, Machida M, Matsuzawa N. Fetal Brain Structure and CNS Anomalies. Donald School J Ultrasound Obstet Gynecol 2022;16(1):31-52. https://www.dsjuog.com/abstractArticleContentBrowse/DSJUOG/27666/JPJ/fullText
