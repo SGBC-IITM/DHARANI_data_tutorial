@@ -201,20 +201,20 @@ class AllenHelper:
         url = f'{baseurl}/atlas?atlas={self.atlas_id}&plate={plate}&zoom=-5'
         return url
 
-    def get_annotations(self):
-        """
-        returns all annotations as dict where
-        keys are ontoids, values are dict of secno:shapely.Geometry
-        """
+    # def get_annotations(self):
+    #     """
+    #     returns all annotations as dict where
+    #     keys are ontoids, values are dict of secno:shapely.Geometry
+    #     """
 
-        secnos = self.get_section_numbers()
-        outdict = defaultdict(dict)
-        for secnum in secnos:
-            annot_seci = self.get_annotation(secnum)
-            for ontoid,shp in annot_seci.items():
-                outdict[ontoid][secnum]=shp
+    #     secnos = self.get_section_numbers()
+    #     outdict = defaultdict(dict)
+    #     for secnum in secnos:
+    #         annot_seci = self.get_annotation(secnum)
+    #         for ontoid,shp in annot_seci.items():
+    #             outdict[ontoid][secnum]=shp
 
-        return dict(outdict)
+    #     return dict(outdict)
     
 
 #%% util functions for handling svg, shapely 

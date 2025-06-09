@@ -3,14 +3,14 @@ from IPython.display import display, HTML, IFrame
 from matplotlib import pyplot as plt
 from shapely.plotting import plot_polygon
 # import json
-import shapely
+# import shapely
 import numpy as np
 
-from typing import Dict, List
 from ontology_handling import TreeHelper
-from annotation_handling import get_reachable_parents, get_supershape
+# from annotation_handling import get_reachable_parents, get_supershape
+from annotation_handling import AnnotationManager
 
-Annotation = Dict[int,shapely.Geometry]
+# Annotation = Dict[int,shapely.Geometry]
 
 def _get_print_rec(ontoid, rec, prefix=''):    
     outstr="".join(['&emsp;']*rec.level)+f'{prefix} {ontoid} {rec.acronym} {rec.name} {rec.level} '
@@ -76,7 +76,8 @@ def display_annotation(im_arr, annot:'Annotation', ontohelper:'TreeHelper', sele
                 shp = annot[ontoid]
                 
             else:
-                shp,chlist = get_supershape(ontoid, annot, ontohelper)
+                mgr = AnnotationManager(ontohelper)
+                shp,chlist = mgr.get_supershape(ontoid, annot)
                 superannot[ontoid]=shp
 
             if shp is not None:
@@ -88,8 +89,8 @@ def display_annotation(im_arr, annot:'Annotation', ontohelper:'TreeHelper', sele
 
 
 def display_annotation_tree(annot:'Annotation', ontohelper:'TreeHelper', selectedlev=None, ontoids=[]):
-
-    reachable = get_reachable_parents(annot,ontohelper)
+    mgr = AnnotationManager(ontohelper)
+    reachable = mgr.get_reachable_parents(annot)
     outstr = ''
     for par in reachable:
         parrec = None
@@ -139,3 +140,57 @@ def display_tiling_grid(thumbnailimg, pageinfo=None):
         plt.xticks(xrange*nc)
         plt.yticks(yrange*nr)
         plt.grid(True)
+
+
+from mpl_toolkits.mplot3d import Axes3D
+
+import trimesh # Assuming your mesh object is of this type
+
+def display_mesh_wireframe(mesh_to_display: trimesh.Trimesh):
+    """
+    Displays a Trimesh object as a wireframe plot using Matplotlib.
+    """
+    if not isinstance(mesh_to_display, trimesh.Trimesh) or \
+       mesh_to_display.vertices.shape[0] == 0 or \
+       mesh_to_display.edges.shape[0] == 0:
+        print("Invalid or empty mesh provided.")
+        return
+
+    # Get the unique edges of the mesh
+    # mesh.edges_unique returns pairs of vertex indices
+    # mesh.vertices[mesh.edges_unique] gives pairs of 3D coordinates for each edge
+    edge_vertices = mesh_to_display.vertices[mesh_to_display.edges_unique]
+
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+
+    for edge in edge_vertices:
+        # Each 'edge' is a pair of 3D points (start_point, end_point)
+        # edge[0] is the start vertex [x, y, z]
+        # edge[1] is the end vertex [x, y, z]
+        ax.plot3D(*zip(*edge), color="b") # Unpack points for plot3D
+
+    # Set plot limits to encompass the mesh
+    min_bounds = mesh_to_display.bounds[0]
+    max_bounds = mesh_to_display.bounds[1]
+    ax.set_xlim([min_bounds[0], max_bounds[0]])
+    ax.set_ylim([min_bounds[1], max_bounds[1]])
+    ax.set_zlim([min_bounds[2], max_bounds[2]])
+    
+    # Ensure equal aspect ratio for a more accurate representation
+    # This can be tricky with matplotlib 3D but here's an attempt
+    all_ranges = np.array([ax.get_xlim(), ax.get_ylim(), ax.get_zlim()])
+    centers = np.mean(all_ranges, axis=1)
+    max_range = np.max(np.abs(all_ranges[:, 1] - all_ranges[:, 0])) / 2.0
+    ax.set_xlim(centers[0] - max_range, centers[0] + max_range)
+    ax.set_ylim(centers[1] - max_range, centers[1] + max_range)
+    ax.set_zlim(centers[2] - max_range, centers[2] + max_range)
+
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    plt.title("Mesh Wireframe")
+    plt.show()
+
+# Example usage (assuming 'your_mesh' is your trimesh.Trimesh object):
+# display_mesh_wireframe(your_mesh)

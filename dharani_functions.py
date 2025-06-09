@@ -11,18 +11,23 @@ import base64
 from collections import defaultdict
 from shapely.geometry import shape as make_shape
 
-from joblib import Parallel, delayed
+import joblib
+cachedir='.cachedir'
+
+memory = joblib.Memory(cachedir, verbose=0)
+
 import logging
 
 logger = logging.getLogger(__name__)
 
 s3 = s3fs.S3FileSystem(anon=True)
 
-def _geojson_to_geometries(secnum, annot, mpp):
+def _geojson_to_geometries(secnum, rawannot, mpp):
+
     # aggregate by ontoid
     shapes = defaultdict(list)
     
-    for feat in annot['features']:
+    for feat in rawannot['features']:
         ontoid = int(feat['properties']['data']['id'])
         coordinates = np.abs(np.array(feat['geometry']['coordinates'])).squeeze()/mpp
 
@@ -58,6 +63,17 @@ def _geojson_to_geometries(secnum, annot, mpp):
         outdict[ontoid]=united
     return outdict
 
+@memory.cache
+def _get_annotation_s3(s3url, secnum, mpp):
+    
+    with s3.open(s3url) as fp:
+        annot = json.load(fp)
+        # {type: featurecollection, features: [features] }
+    
+    # mpp = 2**self._downsample
+    outdict = _geojson_to_geometries(secnum, annot, mpp)
+    return outdict
+
 class DharaniHelper:
     """
     Helper for simplified access to Dharani image and annotation data from 
@@ -75,9 +91,16 @@ class DharaniHelper:
         assert downsample >=0 and downsample <= 7 
         self._specimennum = specimennum
         self._downsample = downsample
-        self._annotations_cache={}
+        # self._annotations_cache={}
         
-
+    @property
+    def specimennum(self):
+        return self._specimennum
+    
+    @property
+    def mpp(self):
+        return 2**self._downsample
+    
     def __str__(self):
         return f'{self.get_specimenname()}, downsample={self._downsample}'
 
@@ -226,7 +249,7 @@ class DharaniHelper:
         
         accessor = PyrTifAccessor(s3url)
         maxlevel = len(accessor.infodict['series'][0]['levels'])-1
-        assert self._downsample > 2, "Section image access for mpp<8 not supported"
+        assert self._downsample > 2, "Section image access for mpp<8 (downsample<3)not supported"
         lev = self._downsample
         postresizefactor = 1
         if self._downsample > maxlevel:
@@ -248,9 +271,10 @@ class DharaniHelper:
         """
         returns annotation as dict where
         keys are ontoid, values are shapely.Geometry
+        This is typed elsewhere as 'Annotations' (e.g. in annotation_handling.py)
         """
-        if secnum in self._annotations_cache:
-            return self._annotations_cache[secnum]
+        # if secnum in self._annotations_cache:
+        #     return self._annotations_cache[secnum]
         
         jsonpath = f'data2d/specimen_{self._specimennum}/Specimen_{self._specimennum}_{secnum}.json'
         s3url = 'dharani-fetal-brain-atlas/'+jsonpath
@@ -258,14 +282,9 @@ class DharaniHelper:
             logging.debug('json not found:'+str(secnum))
             return {}
 
-        with s3.open(s3url) as fp:
-            annot = json.load(fp)
-            # {type: featurecollection, features: [features] }
-        
-        mpp = 2**self._downsample
-        outdict = _geojson_to_geometries(secnum, annot, mpp)
+        outdict = _get_annotation_s3(s3url, secnum, self.mpp)
 
-        self._annotations_cache[secnum]=outdict
+        # self._annotations_cache[secnum]=outdict
 
         return outdict
 
@@ -277,47 +296,5 @@ class DharaniHelper:
         url = f'{baseurl}/code/2dviewer/annotation/public?data={self._specimennum-1}&region=-1&section={secnum}'
         return url
     
-    def get_annotations(self, concurrent=False):
-        """
-        returns all annotations as dict where
-        keys are ontoids, values are dict of secno:shapely.Geometry
-        """
-
-        # secnos = self.get_section_numbers()
-        filenamedict = self.get_filenames()
-        secnos = [key for key in filenamedict if 'annotation' in filenamedict[key]]
-
-        outdict = defaultdict(dict)
-
-        def _configure_worker_logging():
-            # For passing in  initializer argument to joblib Parallel
-            if not logging.root.handlers:
-                logging.basicConfig(level=logging.INFO)
-
-        def workerfunc(secnum):
-            try:
-                annot_seci = self.get_annotation(secnum)
-                # NOTE: this can be taken from self._annotations_cache at caller, rather than returning
-                # but showing here, as a useful design pattern
-                return secnum, annot_seci
-            except:
-                logger.error(f'ERR: sec {secnum}')
-                return secnum, {}
-
-        if not concurrent:
-            for secnum in secnos:
-                secnum, annot_seci = workerfunc(secnum)
-                for ontoid,shp in annot_seci.items():
-                    outdict[ontoid][secnum]=shp
-                
-        else:
-            with Parallel(n_jobs=4) as executor:
-                results = executor(
-                    delayed(workerfunc)(secnum) for secnum in secnos
-                )
-                for secnum, annot_seci in results:
-                    for ontoid,shp in annot_seci.items():
-                        outdict[ontoid][secnum]=shp
-                    
-        return dict(outdict)
+    
     
