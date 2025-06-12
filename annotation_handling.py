@@ -231,17 +231,26 @@ class AnnotationManager:
     def get_annotations_by_ontoid(
         self,
         ontoid: int,
-        merge_children=True,
+        secrange:slice = None,
+        merge_children = True,
     ) -> 'AnnotationSet':
         """
         Retrieves annotations for a given ontoid across all available sections.
 
-        If the ontoid is not directly available and `allow_successors` is True,
+        If the ontoid is not directly available and `merge_children` is True,
         it attempts to find and union shapes from its successor (child) ontoids.
 
         Args:
             ontoid: The ontoid  to retrieve annotations for.
-            
+            secrange: An optional slice object to filter sections by number.
+                      e.g., slice(10, 20) to get sections from 10 to 20 (inclusive).
+                      If None, all available sections are considered.
+            merge_children: If True, and the ontoid itself is not annotated in a section,
+                            the method attempts to union the shapes of its direct and
+                            indirect children (successors) that are annotated in that section.
+                            If False, only the shape directly associated with the ontoid
+                            is returned for that section.
+                            
         Returns:
             A dictionary mapping section numbers to the Shapely Geometry for the
             ontoid (or its unioned successors), or None if not found.
@@ -249,7 +258,13 @@ class AnnotationManager:
         result_shapes_by_secnum: 'AnnotationSet' = {} # secnum:{ontoid:shape}
 
         # Iterate through sections in sorted order
-        for sec_num in self.all_sections:
+        sections = self.all_sections
+        if secrange is not None:
+            sections = [s for s in sections if s >= secrange.start and s <= secrange.stop]
+
+        # Process each section
+        
+        for sec_num in sections:
             section_annotations = self.annotations_data.get(sec_num, {})
             successor_ids = self.tree_helper.get_successor_ids(ontoid) #  List[int]
         

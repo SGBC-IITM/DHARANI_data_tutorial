@@ -46,6 +46,22 @@ def make_interior_exterior(shape):
 
     return new_outer, new_interior
 
+def make_interior_exterior2(shape):
+    shapePoints=np.array(shape.exterior.xy).T
+    new_shape = alphashape.alphashape(shapePoints,0.03)
+
+    if new_shape.geom_type == "MultiPolygon":
+        new_shape = shape.convex_hull
+        
+    new_outer = np.array(new_shape.exterior.xy).T
+    new_interiors = new_shape - shape
+    
+    new_interior_poly = max(new_interiors.geoms, key=lambda item: item.area)
+
+    new_interior = np.array(new_interior_poly.exterior.xy).T
+
+    return new_outer, new_interior
+
 def boundarymask(contour, mpp):
     msk = np.zeros([int(3000*32/mpp),int(3000*32/mpp)],bool)
     # r = contour[:,1]
@@ -158,6 +174,12 @@ def morph_contour(fromcontour:np.ndarray, tocontour:np.ndarray, fromnum:int, ton
     
     # plt.subplot(1,3,3)
     # plt.imshow(distmap)
+
+    _srcpts_max_extent = 0 # Or some small value
+    if srcpts.shape[0] > 1:
+        min_src = np.min(srcpts, axis=0)
+        max_src = np.max(srcpts, axis=0)
+        _srcpts_max_extent = np.max(max_src - min_src)
     
     pairs = []
     widthlist = []
@@ -165,20 +187,38 @@ def morph_contour(fromcontour:np.ndarray, tocontour:np.ndarray, fromnum:int, ton
     
     for pt in srcpts:
         
-        pairpt = distidx[:,int(round(pt[1])),int(round(pt[0]))].T.squeeze()[::-1].tolist() # maintain x,y notation
+        pairpt = distidx[:,int(round(pt[1])),int(round(pt[0]))].T.squeeze()[::-1] # maintain x,y notation. distidx is (2, H, W), indices are (y, x)
         
-        if check_dist and len(pairs) > 0:
-            last = pairs[-1][1]
-            dpair=np.array(pairpt)-np.array(last)
-        #     dpt = np.array(pt)-np.array(pairs[-1][0])
-        #     # print(pairs[-1], "x",pt, "x",pairpt, "x", dpair,end="")
-        #     # relative to 4000x4000
-            if np.sqrt(dpair[0]**2+dpair[1]**2) > 200: # max(200,2*np.sqrt(dpt[0]**2+dpt[1]**2)):
-        #         # print(pairs[-1], "x",pt, "x",pairpt, "x", dpt)
-        #         # print('###')
-                pairpt = last
-        #     # else:
-        #     #     print()
+        
+        # Calculate distance between the current source point and its corresponding point in the destination mask
+        dist_to_pair = distmap[int(round(pt[1])), int(round(pt[0]))]
+        if dist_to_pair == 0:
+            print(pt,pairpt)
+            
+        # Heuristic check: If the distance to the corresponding point is large
+        # relative to the size of the source contour, it might be an invalid pairing.
+        if check_dist:
+            
+            # Check distance relative to the overall size of the source contour
+            if _srcpts_max_extent > 0 and dist_to_pair > 0.5 * _srcpts_max_extent:
+                 logger.debug(f"Skipping potentially bad pair for point {pt}: distance {dist_to_pair:.2f} > 0.5 * src_extent {_srcpts_max_extent:.2f}")
+                 continue # Skip this potentially bad pairing
+
+            # Check distance relative to the distance between consecutive points in srcpts
+            # This requires keeping track of the previous point in srcpts and its pair.
+            # This check is already partially implemented below using 'last' and 'dpair'.
+            if len(pairs) > 0:
+                lastpair = pairs[-1]
+                dlast = distmap[int(round(lastpair[0][1])), int(round(lastpair[0][0]))]
+                
+                # dpt = np.array(pt)-np.array(pairs[-1][0])
+                # relative to 4000x4000
+                # max(200,2*np.sqrt(dpt[0]**2+dpt[1]**2)):
+                dratio = abs(1-dlast/dist_to_pair)
+                if dratio > 0.3:
+                    pairpt = lastpair[1]
+                    # continue
+                
         pairs.append((pt,pairpt))
         u = np.array(pairpt-pt)
         m = scipy.linalg.norm(u)
@@ -206,15 +246,17 @@ def _constrained_triangulate(polygon:shapely.Geometry):
     
     # Define segment markers for constrained triangulation
     segments = np.vstack([np.column_stack([np.arange(len(ext)), np.roll(np.arange(len(ext)), -1)])])
+    # Adjust hole indices to be relative to the combined point list
+    current_point_idx = len(ext)
     for hole in holes:
-        hole_segments = np.column_stack([np.arange(len(hole)), np.roll(np.arange(len(hole)), -1)]) + len(ext)
+        hole_segments = np.column_stack([np.arange(len(hole)), np.roll(np.arange(len(hole)), -1)]) + current_point_idx
         segments = np.vstack([segments, hole_segments])
         ext = np.vstack([ext, hole])  # Combine outer + hole points
+        current_point_idx += len(hole)
 
     # Use triangle to perform constrained triangulation
     tri = triangle.triangulate({'vertices': ext, 'segments': segments}, 'p')
     return np.array(tri['vertices']), np.array(tri['triangles'])
-
 
 #%% method 1 - naive meshing - demonstrated in dharani_3d_sample1.ipynb
 
@@ -336,6 +378,326 @@ def _resample_contour(contour: np.ndarray, num_points: int) -> np.ndarray:
     # Generate new points by interpolating at evenly spaced distances
     new_distances = np.linspace(0, distances[-1], num_points, endpoint=False) # endpoint=False as we handle open contours
     return np.vstack([interp_x(new_distances), interp_y(new_distances)]).T
+
+def morph_contour2(fromcontour_orig:np.ndarray, tocontour_orig:np.ndarray, fromnum:int, tonum:int):
+    """
+    Morphs a contour from 'fromcontour_orig' towards 'tocontour_orig' at an
+    intermediate z-level using Shapely for correspondence.
+    Operates on float coordinates.
+
+    Args:
+        fromcontour_orig: Numpy array of points for the starting contour (N, 2).
+        tocontour_orig: Numpy array of points for the target contour (M, 2).
+        fromnum: Z-level of fromcontour.
+        tonum: Z-level of tocontour.
+
+    Returns:
+        newpts: Numpy array of points for the morphed contour at internum.
+        pairs_final: List of tuples (point_from_fromcontour_resampled, corresponding_point_on_tocontour_resampled).
+        widthlist: List of distances between corresponding points in 'pairs_final'.
+    """
+
+    src_contour = fromcontour_orig
+    dst_contour = tocontour_orig
+
+    nsteps = tonum-fromnum+1
+    stepnum_for_interp = (fromnum+tonum)//2
+    swapped = False
+
+    if len(fromcontour_orig)<len(tocontour_orig):
+        src_contour = tocontour_orig
+        dst_contour = fromcontour_orig
+        swapped = True
+
+    # Create a closed LineString for the destination contour for projection
+    dst_line = shapely.LineString(np.vstack([dst_contour, dst_contour[0]]))
+
+    pairs_intermediate = [] # Will be (src_pt, corresponding_dst_pt)
+    widthlist = []
+    newpts_interpolated = []
+    for pt_src in src_contour:
+        # Find the closest point on the destination LineString
+        pt_dst_corresponding: np.ndarray
+        param_on_dst = dst_line.project(shapely.Point(pt_src))
+        pt_dst_corresponding_candidate = np.array(dst_line.interpolate(param_on_dst).coords[0])
+        pt_dst_corresponding = pt_dst_corresponding_candidate
+    
+        pairs_intermediate.append((pt_src, pt_dst_corresponding))
+        
+        vec = pt_dst_corresponding - pt_src
+        dist = np.linalg.norm(vec)
+        widthlist.append(dist)
+
+        if dist == 0:
+            newpts_interpolated.append(pt_src)
+        else:
+            unit_vec = vec / dist
+            newpt = pt_src + unit_vec * dist * (stepnum_for_interp / nsteps)
+            newpts_interpolated.append(newpt)
+
+    pairs_out = pairs_intermediate
+    if swapped:
+        pairs_out = [(pair[1],pair[0]) for pair in pairs_out]
+    
+    return np.array(newpts_interpolated), pairs_out, widthlist
+
+    
+def morph_contour3(fromcontour_orig:np.ndarray, tocontour_orig:np.ndarray, 
+                   fromnum:int, tonum:int, allow_swap=True):
+    """
+    Morphs a contour. The first src point gets global correspondence on dst.
+    Subsequent src points search locally on dst. The search window on dst
+    starts at the previous src point's correspondence and extends by a length
+    proportional to the current src segment's length, scaled by the ratio of
+    dst_perimeter / src_perimeter.
+
+    Args:
+        fromcontour_orig: Numpy array of points for the starting contour (N, 2).
+        tocontour_orig: Numpy array of points for the target contour (M, 2).
+        fromnum: Z-level of fromcontour.
+        tonum: Z-level of tocontour.
+
+    Returns:
+        newpts: Numpy array of points for the morphed contour at internum.
+        pairs_out: List of tuples (point_from_original_fromcontour, corresponding_point_on_original_tocontour_line).
+        widthlist: List of distances between corresponding points in `pairs_out`.
+        paired_indices_final: List of tuples (idx_in_fromcontour_orig, idx_in_tocontour_orig) for paired vertices.
+    """
+    
+
+    # Determine src_contour (iterated over) and dst_contour (projected onto)
+    # This also sets the 'swapped' flag for final pair ordering.
+    src_contour = fromcontour_orig
+    dst_contour = tocontour_orig
+    swapped = False
+    
+    # Ensure contours are treated as closed LineStrings for length calculation and projection
+    _src_line_for_length = shapely.LineString(np.vstack([src_contour, src_contour[0]]))
+    _dst_line_for_length = shapely.LineString(np.vstack([dst_contour, dst_contour[0]]))
+
+    src_perimeter = _src_line_for_length.length
+    dst_perimeter = _dst_line_for_length.length
+
+    if src_perimeter < dst_perimeter and allow_swap:
+        # src_contour should be larger
+        src_contour = tocontour_orig
+        dst_contour = fromcontour_orig
+        swapped = True
+        tmp = dst_perimeter
+        dst_perimeter = src_perimeter
+        src_perimeter = tmp
+            
+
+    full_dst_line = shapely.LineString(np.vstack([dst_contour, dst_contour[0]]))
+
+    
+    perimeter_ratio = 1.0
+    if src_perimeter > 1e-9: # Avoid division by zero or extreme ratios
+        perimeter_ratio = dst_perimeter / (src_perimeter + 1e-6)
+
+    current_correspondences = [] # List of (pt_from_src_contour, pt_on_dst_line)
+    paired_indices_raw = []      # List of (idx_in_current_src_contour, idx_of_closest_vertex_in_current_dst_contour)
+    # Stores the dst correspondence (a point) of the previous src point
+    pt_dst_correspondence_of_prev_src = None
+    # Stores the previous src point itself
+    pt_s_previous = None
+
+    for i, pt_s in enumerate(src_contour):
+        if i == 0: # First point: Global projection
+            param = full_dst_line.project(shapely.Point(pt_s))
+            pt_t_current = np.array(full_dst_line.interpolate(param).coords[0])
+
+            # Find closest original vertex in dst_contour to pt_t_current
+            distances_to_dst_vertices = np.linalg.norm(dst_contour - pt_t_current, axis=1)
+            idx_t_closest = np.argmin(distances_to_dst_vertices)
+
+        else: # Subsequent points: Local projection
+            # Parameter on full_dst_line of the previous src point's correspondence
+            if pt_dst_correspondence_of_prev_src is None: # Should not happen if i > 0
+                raise ValueError("pt_dst_correspondence_of_prev_src is None in local projection step.")
+                
+            param_prev_dst_correspondence = full_dst_line.project(shapely.Point(pt_dst_correspondence_of_prev_src))
+
+            # Length of the current segment on the src_contour
+            current_src_segment_length = np.linalg.norm(pt_s - pt_s_previous)
+            scaled_segment_length_for_dst = current_src_segment_length * perimeter_ratio * 2.5
+
+            t_start_local_search = param_prev_dst_correspondence
+            # Ensure the search window has a minimal positive length
+            t_end_local_search = t_start_local_search + max(1e-6, scaled_segment_length_for_dst)
+
+            local_search_segment = shapely.ops.substring(full_dst_line, t_start_local_search, t_end_local_search, normalized=False)
+
+            assert not( local_search_segment.is_empty or local_search_segment.length < 1e-6)
+                # pt_t_current = np.array(full_dst_line.interpolate(param_prev_dst_correspondence).coords[0])
+            # else:
+            param_on_local_search = local_search_segment.project(shapely.Point(pt_s))
+            pt_t_current = np.array(local_search_segment.interpolate(param_on_local_search).coords[0])
+
+            # Find closest original vertex in dst_contour to pt_t_current
+            distances_to_dst_vertices = np.linalg.norm(dst_contour - pt_t_current, axis=1)
+            idx_t_closest = np.argmin(distances_to_dst_vertices)
+        
+        current_correspondences.append((pt_s, pt_t_current))
+        paired_indices_raw.append((i, idx_t_closest)) # i is the index of pt_s in src_contour
+        pt_dst_correspondence_of_prev_src = pt_t_current
+        pt_s_previous = pt_s
+
+    # Calculate interpolated points and widthlist based on final correspondences
+    # Interpolation is to the midpoint for this function version
+    nsteps_total = tonum - fromnum # Total z-distance
+    # Effective 'internum' is the midpoint. Interpolation fraction is 0.5.
+    interpolation_fraction = 0.5 if nsteps_total !=0 else 0 
+
+    widthlist = []
+    newpts_interpolated = []
+    for pt_s, pt_t in current_correspondences:
+        vec = pt_t - pt_s
+        dist = np.linalg.norm(vec)
+        widthlist.append(dist)
+        if dist == 0:
+            newpts_interpolated.append(pt_s)
+        else:
+            newpts_interpolated.append(pt_s + vec * interpolation_fraction)
+
+    pairs_out = current_correspondences
+    if swapped:
+        # current_correspondences are (pt_from_tocontour_orig, pt_on_fromcontour_orig_line)
+        # paired_indices_raw are (idx_in_tocontour_orig, idx_in_fromcontour_orig)
+        pairs_out = [(pair[1],pair[0]) for pair in pairs_out]
+        paired_indices_final = [(idx_pair[1], idx_pair[0]) for idx_pair in paired_indices_raw]
+    else:
+        # current_correspondences are (pt_from_fromcontour_orig, pt_on_tocontour_orig_line)
+        # paired_indices_raw are (idx_in_fromcontour_orig, idx_in_tocontour_orig)
+        paired_indices_final = paired_indices_raw
+    
+    return np.array(newpts_interpolated), pairs_out, widthlist, paired_indices_final
+
+
+# def find_unpaired_point_indices(
+#     pairs: List[Tuple[np.ndarray, np.ndarray]],
+#     from_contour: np.ndarray,
+#     to_contour: np.ndarray,
+#     distance_threshold: float = 0.5  # Threshold to consider a point "matched"
+# ) -> Tuple[List[int], List[int], List[Tuple[int, int]]]:
+#     """
+#     Finds the indices of points in from_contour and to_contour that are
+#     not closely matched in the provided pairs, and also returns a list of
+#     indices for points that are considered paired.
+
+#     The 'pairs' argument is expected to be a list of tuples (p_related_to_from, p_related_to_to),
+#     where p_related_to_from is a point from or projected onto the original from_contour,
+#     and p_related_to_to is a point from or projected onto the original to_contour.
+
+#     Args:
+#         pairs: A list of tuples, where each tuple (p_from, p_to) contains
+#                corresponding 2D points. p_from relates to from_contour,
+#                and p_to relates to to_contour.
+#         from_contour: Numpy array of original points for the 'from' contour (N, 2).
+#         to_contour: Numpy array of original points for the 'to' contour (M, 2).
+#         distance_threshold: Maximum distance for an original contour vertex to be
+#                             considered "matched" to its corresponding point in the pairs.
+
+#     Returns:
+#         A tuple (unpaired_from_indices, unpaired_to_indices, paired_indices_list):
+#         - unpaired_from_indices: List of indices of points in from_contour
+#                                  that are considered unpaired.
+#         - unpaired_to_indices: List of indices of points in to_contour
+#                                that are considered unpaired.
+#         - paired_indices_list: List of tuples (idx_from, idx_to), where
+#                                  from_contour[idx_from] and to_contour[idx_to]
+#                                  are considered a matched pair of original vertices.
+#     """
+#     unpaired_from_indices = []
+#     unpaired_to_indices = []
+#     paired_indices_list = []
+
+#     # Extract the points from 'pairs' that correspond to from_contour and to_contour
+#     # pair[0] is related to from_contour, pair[1] is related to to_contour
+#     paired_points_for_from_contour = []
+#     paired_points_for_to_contour = []
+#     if pairs:
+#         for pair in pairs:
+#             paired_points_for_from_contour.append(pair[0])
+#             paired_points_for_to_contour.append(pair[1])
+
+#     # Store which original vertices are considered "matched"
+#     is_from_vertex_matched = [False] * len(from_contour)
+#     is_to_vertex_matched = [False] * len(to_contour)
+
+#     has_from_contour_points = from_contour.ndim == 2 and from_contour.shape[0] > 0
+#     has_to_contour_points = to_contour.ndim == 2 and to_contour.shape[0] > 0
+
+#     # Find unpaired indices in from_contour
+#     if has_from_contour_points:
+#         if not paired_points_for_from_contour: # No pairs, so all from_contour points are unpaired
+#             unpaired_from_indices = list(range(len(from_contour)))
+#             # is_from_vertex_matched remains all False
+#         else:
+#             for i, vertex_from in enumerate(from_contour):
+#                 matched_this_vertex = False
+#                 for p_from_paired in paired_points_for_from_contour:
+#                     if np.linalg.norm(vertex_from - p_from_paired) < distance_threshold:
+#                         matched_this_vertex = True
+#                         break
+#                 if not matched_this_vertex:
+#                     unpaired_from_indices.append(i)
+#                 is_from_vertex_matched[i] = matched_this_vertex
+
+#     # Find unpaired indices in to_contour
+#     if has_to_contour_points:
+#         if not paired_points_for_to_contour: # No pairs, so all to_contour points are unpaired
+#             unpaired_to_indices = list(range(len(to_contour)))
+#             # is_to_vertex_matched remains all False
+#         else:
+#             for i, vertex_to in enumerate(to_contour):
+#                 matched_this_vertex = False
+#                 for p_to_paired in paired_points_for_to_contour:
+#                     if np.linalg.norm(vertex_to - p_to_paired) < distance_threshold:
+#                         matched_this_vertex = True
+#                         break
+#                 if not matched_this_vertex:
+#                     unpaired_to_indices.append(i)
+#                 is_to_vertex_matched[i] = matched_this_vertex
+
+#     # Determine paired_indices_list based on the input `pairs`
+#     # and the "matched" status of original vertices.
+#     if pairs and has_from_contour_points and has_to_contour_points:
+#         temp_paired_indices_set = set()
+
+#         for p_rel_from, p_rel_to in pairs:
+#             # Find closest original vertex in from_contour to p_rel_from
+#             min_dist_from = float('inf')
+#             best_idx_from = -1
+#             for idx_f, v_from in enumerate(from_contour):
+#                 dist = np.linalg.norm(v_from - p_rel_from)
+#                 if dist < min_dist_from:
+#                     min_dist_from = dist
+#                     best_idx_from = idx_f
+            
+#             # Find closest original vertex in to_contour to p_rel_to
+#             min_dist_to = float('inf')
+#             best_idx_to = -1
+#             for idx_t, v_to in enumerate(to_contour):
+#                 dist = np.linalg.norm(v_to - p_rel_to)
+#                 if dist < min_dist_to:
+#                     min_dist_to = dist
+#                     best_idx_to = idx_t
+
+#             if best_idx_from != -1 and best_idx_to != -1:
+#                 # Check if these closest original vertices are within threshold of the pair points
+#                 # AND if these original vertices were themselves considered "matched".
+#                 if min_dist_from < distance_threshold and \
+#                    min_dist_to < distance_threshold and \
+#                    is_from_vertex_matched[best_idx_from] and \
+#                    is_to_vertex_matched[best_idx_to]:
+#                     temp_paired_indices_set.add((best_idx_from, best_idx_to))
+        
+#         paired_indices_list = sorted(list(temp_paired_indices_set))
+
+#     return unpaired_from_indices, unpaired_to_indices, paired_indices_list
+
+
 class ContourSequenceMesher:
     """
     Accumulates a sequence of 2D contours at different z-levels and builds
@@ -361,8 +723,9 @@ class ContourSequenceMesher:
         self._contours: Dict[int, np.ndarray] = {}
         self._mesh: trimesh.Trimesh = trimesh.Trimesh() # Start with an empty mesh
         self._is_built = False # Flag to track if the mesh needs rebuilding
+        self._resampled_contours_for_mesh: Dict[int, np.ndarray] = {} # Store resampled contours for reuse
 
-    def add_contour(self, contour:  np.ndarray, z_level: int):
+    def add_contour(self, contour:  np.ndarray, z_level: int, homogenize:bool = True):
         """
         Adds a contour at a specific z-level to the sequence.
 
@@ -372,6 +735,9 @@ class ContourSequenceMesher:
         Args:
             contour: The 2D contour. A numpy array of points (N, 2).
             z_level: The z-coordinate for this contour (secnum).
+            homogenize: If True, the contour is resampled to have more uniform segment lengths.
+                This can improve the quality of the generated mesh.
+                If False, the original contour points are used.
         """
         
         # Store points. morph_contour's boundarymask expects int, but morph_contour
@@ -380,9 +746,15 @@ class ContourSequenceMesher:
         # If morph_contour truly requires int input, we'd convert here.
         # Based on the provided code, boundarymask converts to int internally.
         # So, passing float points to morph_contour should be fine.
+        
+        assert len(contour)>2, f"degenerate contour at z-level {z_level}"
+
         self._contours[z_level] = contour.astype(float)
+        if homogenize:
+            self._contours[z_level] = _resample_contour2(self._contours[z_level])
 
         self._is_built = False # Mark mesh as needing rebuild
+        self._resampled_contours_for_mesh = {} # Clear cached resampled contours
 
     def build_mesh(self):
         """
@@ -390,67 +762,98 @@ class ContourSequenceMesher:
         This method sorts contours by z-level and creates mesh segments
         between each consecutive pair.
         """
-        if len(self._contours) < 2:
-            logging.info("Need at least two contours to build a mesh.")
-            self._mesh = trimesh.Trimesh() # Reset to empty
+        
+        sorted_z_levels = sorted(self._contours.keys())
+        
+        if not sorted_z_levels:
+            self._mesh = trimesh.Trimesh()
             self._is_built = True
             return
 
-        sorted_z_levels = sorted(self._contours.keys())
+        maxpts_contour = max([len(c) for z,c in self._contours.items()])
+        print('max contour len', maxpts_contour)
+
         all_segments = []
 
-        medgap = np.median(np.diff(sorted_z_levels))
+        medgap = np.median(np.diff(sorted_z_levels)) if len(sorted_z_levels) > 1 else 0
 
         for i in range(len(sorted_z_levels) - 1):
             z1 = sorted_z_levels[i]
             z2 = sorted_z_levels[i+1]
-            contour1_orig = self._contours[z1]
-            contour2_orig = self._contours[z2]
-    
-            if z2-z1 > 2*medgap:
+            
+            if medgap > 0 and (z2 - z1) > 2 * medgap:
                 logging.warning(f"Gap between z={z1} and z={z2} is larger than 2*median {medgap}.")
                 continue
+            
+            if i==0:
+                from_contour = _resample_contour(self._contours[z1], maxpts_contour)
+            else:
+                from_contour = self._resampled_contours_for_mesh[z1]
+                
 
-            # Determine a consistent number of points for resampling
-            # Using max length ensures detail isn't lost from the denser contour,
-            # but could be a fixed number too.
-            num_resample_points = max(len(contour1_orig), len(contour2_orig))
-            if num_resample_points < 3: # Need at least 3 points for a polygon/morphing
-                logging.warning(f"Contours between z={z1} and z={z2} have too few points ({num_resample_points}) for resampling. Skipping segment.")
-                continue
-            contour1_resampled = _resample_contour(contour1_orig, num_resample_points)
-            contour2_resampled = _resample_contour(contour2_orig, num_resample_points)
+            to_contour = _resample_contour(self._contours[z2], maxpts_contour)
 
-            # morph_contour requires internum between fromnum and tonum.
-            # The exact value doesn't affect the 'pairs' output used for skinning
-            # between the original contours, as long as the swap logic is consistent.
-            # Let's use the midpoint.
-            # internum = z1 + (z2 - z1) / 2.0
-            internum = (z1+z2)//2
+            _, pairs, _, paired_indices = morph_contour3(from_contour, to_contour, z1, z2) #, contour_lengths[z1], contour_lengths[z2])
+            
+            idx_left = [] # ordered list
+            idx_right = []
+            # unpack as left and right
+            for idx_from, idx_to in paired_indices:
+                idx_left.append(idx_from)
+                idx_right.append(idx_to)
 
-            # Call morph_contour to get correspondences
-            # We only need the 'pairs' output
-            # Note: morph_contour expects fromcontour and tocontour as numpy arrays
-            _, pairs, _ = morph_contour(contour1_resampled, contour2_resampled, z1, z2, internum, self._mpp)
+            unpaired_from_idx = set(range(len(from_contour)))-set(idx_left)
+            unpaired_to_idx = set(range(len(to_contour)))-set(idx_right)
 
-            if not pairs:
-                logging.warning(f"No pairs generated between z={z1} and z={z2}. Skipping segment.")
-                continue
+            # unpaired_from_idx, unpaired_to_idx, paired_indices = find_unpaired_point_indices(pairs, from_contour, to_contour, 1)
 
-            # Determine the correct order of points in pairs for create_surface_between_contours
-            # based on morph_contour's internal swap logic.
-            # The swap condition from morph_contour:
-            # swapped = (tonum - internum < stepnum) or (len(tocontour) > len(fromcontour))
-            # where stepnum = internum - fromnum
-            # So, swapped = (z2 - internum < internum - z1) or (len(contour2_np) > len(contour1_np))
-            # If swapped is True, pairs are (point_from_contour2, point_from_contour1_mask)
-            # If swapped is False, pairs are (point_from_contour1, point_from_contour2_mask)
+            print(i, 'unpaired from ', len(unpaired_from_idx), 'unpaired to', len(unpaired_to_idx), 'paired', len(pairs), 'len from', len(from_contour), 'len to', len(to_contour))
 
-            # stepnum_in_morph = internum - z1
-            # Replicate the swap logic from morph_contour
-            # swapped = (z2 - internum < stepnum_in_morph) or (len(contour2_np) > len(contour1_np))
+            
+            new_pair_indices_left = []
 
-            pairs_for_surface = pairs
+            tol_left = np.median(np.diff(sorted(idx_left)))
+            print('tol_left',tol_left)
+            
+            if True:
+                for from_ii in unpaired_from_idx:
+                    pos = np.argmin(np.abs(np.array(idx_left)-from_ii))
+                    v = idx_left[pos]-from_ii
+                    if abs(v) < tol_left:
+                        nearest_to_ii = idx_right[pos]
+                        new_pair_indices_left.append((from_ii,nearest_to_ii))
+
+            new_pair_indices_right = []
+
+            tol_right = np.median(np.diff(sorted(idx_right)))
+            print('tol_right', tol_right)
+            if False:
+                for to_ii in unpaired_to_idx:
+                    pos = np.argmin(np.array(idx_right)-to_ii)
+                    v = idx_right[pos]-to_ii
+                    if v < tol_right:
+                        nearest_from_ii = idx_left[pos]
+                        new_pair_indices_right.append((nearest_from_ii,to_ii))
+            
+            # Combine original paired indices with newly found local pairs
+            all_paired_indices = paired_indices + new_pair_indices_left + new_pair_indices_right
+
+            # Create the list of actual point pairs based on the indices
+            pairs_for_surface = []
+            for idx_from, idx_to in all_paired_indices:
+                if idx_from < len(from_contour) and idx_to < len(to_contour):
+                    pairs_for_surface.append((from_contour[idx_from], to_contour[idx_to]))
+                else:
+                    logger.warning(f"Invalid index in all_paired_indices: ({idx_from}, {idx_to}) for contours of lengths {len(from_contour)} and {len(to_contour)}")
+
+            # Store resampled contours for the next iteration
+
+            # pairs_for_surface = pairs # debugging
+
+            self._resampled_contours_for_mesh[z1] = from_contour
+            self._resampled_contours_for_mesh[z2] = to_contour
+            
+
             z_first = float(z1)*self._section_thickness_microns
             z_second = float(z2)*self._section_thickness_microns
 
@@ -523,6 +926,76 @@ class ContourSequenceMesher:
     #     return self._contours.get(z_level)
     
 
+def _resample_contour2(contour: np.ndarray) -> np.ndarray:
+    """
+    Resamples a 2D contour by subdividing segments longer than the
+    average segment length of the input contour.
+
+    This function aims to make segment lengths more uniform by adding points
+    to longer segments. The total number of points in the output contour
+    will be greater than or equal to the number of points in the input contour.
+
+    Args:
+        contour: A numpy array of shape (N, 2) representing the 2D contour points.
+
+    Returns:
+        A numpy array of shape (M, 2) representing the resampled contour,
+        where M >= N.
+    """
+    num_original_points = len(contour)
+
+    if num_original_points < 2:
+        # Not enough points to form segments or define an average
+        return contour.copy()
+
+    # Calculate all segment lengths for the closed contour
+    # np.vstack appends contour[0] to the end to close the loop for segment calculation
+    closed_contour_for_segments = np.vstack([contour, contour[0]])
+    segment_vectors = np.diff(closed_contour_for_segments, axis=0)
+    segment_lengths = np.linalg.norm(segment_vectors, axis=1)
+
+    # Calculate average segment length, considering only non-negligible segments
+    # Use a small epsilon to avoid issues with floating point precision for "zero" length
+    epsilon = 1e-9
+    valid_segment_lengths = segment_lengths[segment_lengths > epsilon]
+
+    if len(valid_segment_lengths) == 0:
+        # All segments are zero or near-zero length (e.g., all points coincident)
+        return contour.copy()
+    
+    avg_segment_length = np.mean(valid_segment_lengths)
+
+    if avg_segment_length < epsilon:
+        # Average segment length is effectively zero, no meaningful subdivision possible
+        return contour.copy()
+
+    new_points_list = []
+    for i in range(num_original_points):
+        p_start = contour[i]
+        # For the last point, p_end is the first point of the contour
+        p_end = contour[(i + 1) % num_original_points]
+
+        new_points_list.append(p_start)
+
+        current_segment_vector = p_end - p_start
+        current_segment_length = np.linalg.norm(current_segment_vector)
+
+        # If the current segment is longer than the average, subdivide it
+        if current_segment_length > avg_segment_length:
+            # Determine how many sub-segments are needed to get lengths approx. avg_segment_length
+            num_sub_segments = int(np.ceil(current_segment_length / avg_segment_length))
+            
+            if num_sub_segments > 1: # Ensure at least two sub-segments (i.e., at least one new point)
+                for k in range(1, num_sub_segments): # k from 1 up to num_sub_segments-1
+                    fraction = k / float(num_sub_segments)
+                    intermediate_point = p_start + fraction * current_segment_vector
+                    new_points_list.append(intermediate_point)
+    
+    if not new_points_list: # Should not happen if num_original_points >=1
+        return contour.copy()
+
+    return np.array(new_points_list)
+
 # local utility
 def _get_int_ext(shp):
 
@@ -534,6 +1007,23 @@ def _get_int_ext(shp):
             intc = np.vstack([np.array(elt.xy).T.astype(int) for elt in shp.interiors])
     else:
         extc, intc = make_interior_exterior(shp)
+
+    return extc, intc
+
+def _get_int_ext2(shp: shapely.Geometry):
+    """
+    Alternative to _get_int_ext that returns exterior and interior contours
+    as float coordinates, without casting to int.
+    """
+    extc = None
+    intc = None
+    if is_convex_dist(shp):
+        extc = np.array(shp.exterior.xy).T # Keep as float
+        if shp.interiors:
+            intc = np.vstack([np.array(elt.xy).T for elt in shp.interiors]) # Keep as float
+    else:
+        # make_interior_exterior already returns float coordinates from alphashape
+        extc, intc = make_interior_exterior2(shp)
 
     return extc, intc
 
@@ -642,7 +1132,7 @@ def create_mesh_from_AnnotationSet(
 
         for shape in polyshapes:
             # _get_int_ext returns contours in pixel coordinates
-            extc_pixels, intc_pixels = _get_int_ext(shape)
+            extc_pixels, intc_pixels = _get_int_ext2(shape)
 
             if extc_pixels is not None:
                 if extc_pixels.ndim == 2 and extc_pixels.shape[1] == 2:
@@ -677,6 +1167,8 @@ def create_mesh_from_AnnotationSet(
     combined_hole_mesh = hole_volume_mesher.get_mesh()
 
     return main_mesh, combined_hole_mesh
+
+#%% for later
 
 def mesh_join(main_mesh, combined_hole_mesh):
     final_mesh = main_mesh
